@@ -1,4 +1,4 @@
-# Generated for Konflux Application openshift-pipelines-core-next by openshift-pipelines/hack. DO NOT EDIT
+# Generated for Konflux Application openshift-pipelines-cli-next by openshift-pipelines/hack. DO NOT EDIT
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
@@ -10,13 +10,13 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" &&
+      == "release-v1.19.x" &&
       ("***".pathChanged() ||
       ".konflux/dockerfiles/opc.Dockerfile".pathChanged() ||
       ".tekton/opc-next-opc-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: openshift-pipelines-core-next
+    appstudio.openshift.io/application: openshift-pipelines-cli-next
     appstudio.openshift.io/component: opc-next-opc
     pipelines.appstudio.openshift.io/type: build
   name: opc-next-opc-on-push

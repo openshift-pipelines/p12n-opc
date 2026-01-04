@@ -60,8 +60,6 @@ type Settings struct {
 	AkismetAPIKey                                         string                    `json:"akismet_api_key"`
 	AkismetEnabled                                        bool                      `json:"akismet_enabled"`
 	AllowAccountDeletion                                  bool                      `json:"allow_account_deletion"`
-	AllowAllIntegrations                                  bool                      `json:"allow_all_integrations"`
-	AllowedIntegrations                                   []string                  `json:"allowed_integrations"`
 	AllowGroupOwnersToManageLDAP                          bool                      `json:"allow_group_owners_to_manage_ldap"`
 	AllowLocalRequestsFromSystemHooks                     bool                      `json:"allow_local_requests_from_system_hooks"`
 	AllowLocalRequestsFromWebHooksAndServices             bool                      `json:"allow_local_requests_from_web_hooks_and_services"`
@@ -75,8 +73,6 @@ type Settings struct {
 	AssetProxySecretKey                                   string                    `json:"asset_proxy_secret_key"`
 	AuthorizedKeysEnabled                                 bool                      `json:"authorized_keys_enabled"`
 	AutoBanUserOnExcessiveProjectsDownload                bool                      `json:"auto_ban_user_on_excessive_projects_download"`
-	AutocompleteUsers                                     int                       `json:"autocomplete_users"`
-	AutocompleteUsersUnauthenticated                      int                       `json:"autocomplete_users_unauthenticated"`
 	AutoDevOpsDomain                                      string                    `json:"auto_devops_domain"`
 	AutoDevOpsEnabled                                     bool                      `json:"auto_devops_enabled"`
 	AutomaticPurchasedStorageAllocation                   bool                      `json:"automatic_purchased_storage_allocation"`
@@ -85,10 +81,8 @@ type Settings struct {
 	BulkImportMaxDownloadFileSize                         int                       `json:"bulk_import_max_download_file_size"`
 	CanCreateGroup                                        bool                      `json:"can_create_group"`
 	CheckNamespacePlan                                    bool                      `json:"check_namespace_plan"`
-	CIJobLiveTraceEnabled                                 bool                      `json:"ci_job_live_trace_enabled"`
 	CIMaxIncludes                                         int                       `json:"ci_max_includes"`
 	CIMaxTotalYAMLSizeBytes                               int                       `json:"ci_max_total_yaml_size_bytes"`
-	CIPartitionsSizeLimit                                 int                       `json:"ci_partitions_size_limit"`
 	CommitEmailHostname                                   string                    `json:"commit_email_hostname"`
 	ConcurrentBitbucketImportJobsLimit                    int                       `json:"concurrent_bitbucket_import_jobs_limit"`
 	ConcurrentBitbucketServerImportJobsLimit              int                       `json:"concurrent_bitbucket_server_import_jobs_limit"`
@@ -174,7 +168,6 @@ type Settings struct {
 	ElasticsearchProjectIDs                               []int                     `json:"elasticsearch_project_ids"`
 	ElasticsearchReplicas                                 int                       `json:"elasticsearch_replicas"`
 	ElasticsearchRequeueWorkers                           bool                      `json:"elasticsearch_requeue_workers"`
-	ElasticsearchRetryOnFailure                           int                       `json:"elasticsearch_retry_on_failure"`
 	ElasticsearchSearch                                   bool                      `json:"elasticsearch_search"`
 	ElasticsearchShards                                   int                       `json:"elasticsearch_shards"`
 	ElasticsearchURL                                      []string                  `json:"elasticsearch_url"`
@@ -187,7 +180,6 @@ type Settings struct {
 	EmailRestrictionsEnabled                              bool                      `json:"email_restrictions_enabled"`
 	EnableArtifactExternalRedirectWarningPage             bool                      `json:"enable_artifact_external_redirect_warning_page"`
 	EnabledGitAccessProtocol                              string                    `json:"enabled_git_access_protocol"`
-	EnforceCIInboundJobTokenScopeEnabled                  bool                      `json:"enforce_ci_inbound_job_token_scope_enabled"`
 	EnforceNamespaceStorageLimit                          bool                      `json:"enforce_namespace_storage_limit"`
 	EnforcePATExpiration                                  bool                      `json:"enforce_pat_expiration"`
 	EnforceSSHKeyExpiration                               bool                      `json:"enforce_ssh_key_expiration"`
@@ -208,7 +200,7 @@ type Settings struct {
 	FlocEnabled                                           bool                      `json:"floc_enabled"`
 	GeoNodeAllowedIPs                                     string                    `json:"geo_node_allowed_ips"`
 	GeoStatusTimeout                                      int                       `json:"geo_status_timeout"`
-	GitRateLimitUsersAlertlist                            []int                     `json:"git_rate_limit_users_alertlist"`
+	GitRateLimitUsersAlertlist                            []string                  `json:"git_rate_limit_users_alertlist"`
 	GitTwoFactorSessionExpiry                             int                       `json:"git_two_factor_session_expiry"`
 	GitalyTimeoutDefault                                  int                       `json:"gitaly_timeout_default"`
 	GitalyTimeoutFast                                     int                       `json:"gitaly_timeout_fast"`
@@ -492,7 +484,7 @@ type Settings struct {
 func (s *Settings) UnmarshalJSON(data []byte) error {
 	type Alias Settings
 
-	raw := make(map[string]any)
+	raw := make(map[string]interface{})
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return err
@@ -546,8 +538,6 @@ type UpdateSettingsOptions struct {
 	AkismetAPIKey                                         *string                                 `url:"akismet_api_key,omitempty" json:"akismet_api_key,omitempty"`
 	AkismetEnabled                                        *bool                                   `url:"akismet_enabled,omitempty" json:"akismet_enabled,omitempty"`
 	AllowAccountDeletion                                  *bool                                   `url:"allow_account_deletion,omitempty" json:"allow_account_deletion,omitempty"`
-	AllowAllIntegrations                                  *bool                                   `url:"allow_all_integrations,omitempty" json:"allow_all_integrations,omitempty"`
-	AllowedIntegrations                                   *[]string                               `url:"allowed_integrations,omitempty" json:"allowed_integrations,omitempty"`
 	AllowGroupOwnersToManageLDAP                          *bool                                   `url:"allow_group_owners_to_manage_ldap,omitempty" json:"allow_group_owners_to_manage_ldap,omitempty"`
 	AllowLocalRequestsFromSystemHooks                     *bool                                   `url:"allow_local_requests_from_system_hooks,omitempty" json:"allow_local_requests_from_system_hooks,omitempty"`
 	AllowLocalRequestsFromWebHooksAndServices             *bool                                   `url:"allow_local_requests_from_web_hooks_and_services,omitempty" json:"allow_local_requests_from_web_hooks_and_services,omitempty"`
@@ -561,8 +551,6 @@ type UpdateSettingsOptions struct {
 	AssetProxyURL                                         *string                                 `url:"asset_proxy_url,omitempty" json:"asset_proxy_url,omitempty"`
 	AuthorizedKeysEnabled                                 *bool                                   `url:"authorized_keys_enabled,omitempty" json:"authorized_keys_enabled,omitempty"`
 	AutoBanUserOnExcessiveProjectsDownload                *bool                                   `url:"auto_ban_user_on_excessive_projects_download,omitempty" json:"auto_ban_user_on_excessive_projects_download,omitempty"`
-	AutocompleteUsers                                     *int                                    `url:"autocomplete_users,omitempty" json:"autocomplete_users,omitempty"`
-	AutocompleteUsersUnauthenticated                      *int                                    `url:"autocomplete_users_unauthenticated,omitempty" json:"autocomplete_users_unauthenticated,omitempty"`
 	AutoDevOpsDomain                                      *string                                 `url:"auto_devops_domain,omitempty" json:"auto_devops_domain,omitempty"`
 	AutoDevOpsEnabled                                     *bool                                   `url:"auto_devops_enabled,omitempty" json:"auto_devops_enabled,omitempty"`
 	AutomaticPurchasedStorageAllocation                   *bool                                   `url:"automatic_purchased_storage_allocation,omitempty" json:"automatic_purchased_storage_allocation,omitempty"`
@@ -571,10 +559,8 @@ type UpdateSettingsOptions struct {
 	BulkImportMaxDownloadFileSize                         *int                                    `url:"bulk_import_max_download_file_size,omitempty" json:"bulk_import_max_download_file_size,omitempty"`
 	CanCreateGroup                                        *bool                                   `url:"can_create_group,omitempty" json:"can_create_group,omitempty"`
 	CheckNamespacePlan                                    *bool                                   `url:"check_namespace_plan,omitempty" json:"check_namespace_plan,omitempty"`
-	CIJobLiveTraceEnabled                                 *bool                                   `url:"ci_job_live_trace_enabled,omitempty" json:"ci_job_live_trace_enabled,omitempty"`
 	CIMaxIncludes                                         *int                                    `url:"ci_max_includes,omitempty" json:"ci_max_includes,omitempty"`
 	CIMaxTotalYAMLSizeBytes                               *int                                    `url:"ci_max_total_yaml_size_bytes,omitempty" json:"ci_max_total_yaml_size_bytes,omitempty"`
-	CIPartitionsSizeLimit                                 *int                                    `url:"ci_partitions_size_limit,omitempty" json:"ci_partitions_size_limit,omitempty"`
 	CommitEmailHostname                                   *string                                 `url:"commit_email_hostname,omitempty" json:"commit_email_hostname,omitempty"`
 	ConcurrentBitbucketImportJobsLimit                    *int                                    `url:"concurrent_bitbucket_import_jobs_limit,omitempty" json:"concurrent_bitbucket_import_jobs_limit,omitempty"`
 	ConcurrentBitbucketServerImportJobsLimit              *int                                    `url:"concurrent_bitbucket_server_import_jobs_limit,omitempty" json:"concurrent_bitbucket_server_import_jobs_limit,omitempty"`
@@ -659,7 +645,6 @@ type UpdateSettingsOptions struct {
 	ElasticsearchProjectIDs                               *[]int                                  `url:"elasticsearch_project_ids,omitempty" json:"elasticsearch_project_ids,omitempty"`
 	ElasticsearchReplicas                                 *int                                    `url:"elasticsearch_replicas,omitempty" json:"elasticsearch_replicas,omitempty"`
 	ElasticsearchRequeueWorkers                           *bool                                   `url:"elasticsearch_requeue_workers,omitempty" json:"elasticsearch_requeue_workers,omitempty"`
-	ElasticsearchRetryOnFailure                           *int                                    `url:"elasticsearch_retry_on_failure,omitempty" json:"elasticsearch_retry_on_failure,omitempty"`
 	ElasticsearchSearch                                   *bool                                   `url:"elasticsearch_search,omitempty" json:"elasticsearch_search,omitempty"`
 	ElasticsearchShards                                   *int                                    `url:"elasticsearch_shards,omitempty" json:"elasticsearch_shards,omitempty"`
 	ElasticsearchURL                                      *string                                 `url:"elasticsearch_url,omitempty" json:"elasticsearch_url,omitempty"`
@@ -672,7 +657,6 @@ type UpdateSettingsOptions struct {
 	EmailRestrictionsEnabled                              *bool                                   `url:"email_restrictions_enabled,omitempty" json:"email_restrictions_enabled,omitempty"`
 	EnableArtifactExternalRedirectWarningPage             *bool                                   `url:"enable_artifact_external_redirect_warning_page,omitempty" json:"enable_artifact_external_redirect_warning_page,omitempty"`
 	EnabledGitAccessProtocol                              *string                                 `url:"enabled_git_access_protocol,omitempty" json:"enabled_git_access_protocol,omitempty"`
-	EnforceCIInboundJobTokenScopeEnabled                  *bool                                   `url:"enforce_ci_inbound_job_token_scope_enabled,omitempty" json:"enforce_ci_inbound_job_token_scope_enabled,omitempty"`
 	EnforceNamespaceStorageLimit                          *bool                                   `url:"enforce_namespace_storage_limit,omitempty" json:"enforce_namespace_storage_limit,omitempty"`
 	EnforcePATExpiration                                  *bool                                   `url:"enforce_pat_expiration,omitempty" json:"enforce_pat_expiration,omitempty"`
 	EnforceSSHKeyExpiration                               *bool                                   `url:"enforce_ssh_key_expiration,omitempty" json:"enforce_ssh_key_expiration,omitempty"`
@@ -693,7 +677,7 @@ type UpdateSettingsOptions struct {
 	FlocEnabled                                           *bool                                   `url:"floc_enabled,omitempty" json:"floc_enabled,omitempty"`
 	GeoNodeAllowedIPs                                     *string                                 `url:"geo_node_allowed_ips,omitempty" json:"geo_node_allowed_ips,omitempty"`
 	GeoStatusTimeout                                      *int                                    `url:"geo_status_timeout,omitempty" json:"geo_status_timeout,omitempty"`
-	GitRateLimitUsersAlertlist                            *[]int                                  `url:"git_rate_limit_users_alertlist,omitempty" json:"git_rate_limit_users_alertlist,omitempty"`
+	GitRateLimitUsersAlertlist                            *[]string                               `url:"git_rate_limit_users_alertlist,omitempty" json:"git_rate_limit_users_alertlist,omitempty"`
 	GitTwoFactorSessionExpiry                             *int                                    `url:"git_two_factor_session_expiry,omitempty" json:"git_two_factor_session_expiry,omitempty"`
 	GitalyTimeoutDefault                                  *int                                    `url:"gitaly_timeout_default,omitempty" json:"gitaly_timeout_default,omitempty"`
 	GitalyTimeoutFast                                     *int                                    `url:"gitaly_timeout_fast,omitempty" json:"gitaly_timeout_fast,omitempty"`

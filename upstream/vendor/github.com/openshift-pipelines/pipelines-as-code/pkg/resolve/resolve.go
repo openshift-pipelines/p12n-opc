@@ -38,9 +38,8 @@ type FetchedResources struct {
 
 // Contains Fetched Resources for Run, with key equals to resource name from metadata.name field.
 type FetchedResourcesForRun struct {
-	Tasks       map[string]*tektonv1.Task
-	Pipeline    *tektonv1.Pipeline
-	PipelineURL string
+	Tasks    map[string]*tektonv1.Task
+	Pipeline *tektonv1.Pipeline
 }
 
 func NewTektonTypes() TektonTypes {

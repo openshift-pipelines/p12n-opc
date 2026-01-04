@@ -22,6 +22,7 @@ import (
 
 // Constants defining various labels, names, and paths used in the Tekton Results configuration.
 const (
+	ServiceLabel  string = "app.kubernetes.io/name=tekton-results-api"
 	ExtensionName string = "tekton-results"
 	Group         string = "results.tekton.dev"
 	Version       string = "v1alpha2"
@@ -196,6 +197,9 @@ func (c *config) Set(prompt bool, p common.Params) error {
 	// get data from prompt in enabled
 	if prompt {
 		host := c.Host()
+		if err, ok := host.(error); ok {
+			return fmt.Errorf("failed to get host: %w", err)
+		}
 		if err := c.Prompt("Host", &c.Extension.Host, host); err != nil {
 			return err
 		}
@@ -295,17 +299,29 @@ func (c *config) LoadExtension(p common.Params) error {
 	return json.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
 }
 
-// Host retrieves the host URL for the Tekton Results API based on external access detection.
-// It automatically detects the platform and tries to find a healthy tekton-results-api-service.
+// Host retrieves a list of host URLs for the Tekton Results API based on the routes in the cluster.
+// It constructs the URLs using either HTTP or HTTPS depending on the TLS configuration of each route.
+//
+// Parameters:
+//   - p: common.Params containing configuration parameters (unused in this function but kept for consistency).
 //
 // Returns:
-//   - string: The detected host URL if successful, or empty string if detection fails.
-func (c *config) Host() string {
-	url, err := getHostURL(c.RESTConfig)
+//   - any: A slice of strings containing the host URLs if successful, or an error if route retrieval fails.
+func (c *config) Host() any {
+	routes, err := getRoutes(c.RESTConfig)
 	if err != nil {
-		return "" // Return empty string so user can enter manually
+		return err
 	}
-	return url // Return the detected URL as default
+
+	var hosts []string
+	for _, route := range routes {
+		host := "http://" + route.Spec.Host
+		if route.Spec.TLS != nil {
+			host = "https://" + route.Spec.Host
+		}
+		hosts = append(hosts, host)
+	}
+	return hosts
 }
 
 // Token returns the bearer token from the REST configuration.
