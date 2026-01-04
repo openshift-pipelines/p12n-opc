@@ -605,7 +605,6 @@ type MergeCommentEvent struct {
 		HeadPipelineID      int        `json:"head_pipeline_id"`
 		Assignee            *EventUser `json:"assignee"`
 		DetailedMergeStatus string     `json:"detailed_merge_status"`
-		URL                 string     `json:"url"`
 	} `json:"merge_request"`
 }
 
@@ -800,7 +799,7 @@ func (p *MergeParams) UnmarshalJSON(b []byte) error {
 	type Alias MergeParams
 	raw := struct {
 		*Alias
-		ForceRemoveSourceBranch any `json:"force_remove_source_branch"`
+		ForceRemoveSourceBranch interface{} `json:"force_remove_source_branch"`
 	}{
 		Alias: (*Alias)(p),
 	}
@@ -986,7 +985,6 @@ type PushEvent struct {
 	Before       string `json:"before"`
 	After        string `json:"after"`
 	Ref          string `json:"ref"`
-	RefProtected bool   `json:"ref_protected"`
 	CheckoutSHA  string `json:"checkout_sha"`
 	UserID       int    `json:"user_id"`
 	UserName     string `json:"user_name"`

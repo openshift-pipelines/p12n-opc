@@ -106,12 +106,9 @@ func (in *PutObjectLockConfigurationInput) bindEndpointParams(p *EndpointParamet
 type PutObjectLockConfigurationOutput struct {
 
 	// If present, indicates that the requester was successfully charged for the
-	// request. For more information, see [Using Requester Pays buckets for storage transfers and usage]in the Amazon Simple Storage Service user
-	// guide.
+	// request.
 	//
 	// This functionality is not supported for directory buckets.
-	//
-	// [Using Requester Pays buckets for storage transfers and usage]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html
 	RequestCharged types.RequestCharged
 
 	// Metadata pertaining to the operation's result.
@@ -191,9 +188,6 @@ func (c *Client) addOperationPutObjectLockConfigurationMiddlewares(stack *middle
 		return err
 	}
 	if err = addRequestChecksumMetricsTracking(stack, options); err != nil {
-		return err
-	}
-	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpPutObjectLockConfigurationValidationMiddleware(stack); err != nil {

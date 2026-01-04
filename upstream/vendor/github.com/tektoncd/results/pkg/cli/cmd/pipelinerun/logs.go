@@ -1,13 +1,11 @@
 package pipelinerun
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/cli/options"
 
 	"github.com/spf13/cobra"
@@ -41,8 +39,7 @@ Get logs for a PipelineRun by UID if there are multiple PipelineRuns with the sa
 
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
-Additionally, PipelineRun logs are not supported for S3 log storage.
-Logs are only available for completed PipelineRuns. Running PipelineRuns do not have logs available yet.`,
+Additionally, PipelineRun logs are not supported for S3 log storage.`,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -87,7 +84,7 @@ Logs are only available for completed PipelineRuns. Running PipelineRuns do not 
 				Parent:   parent,
 				Filter:   filter,
 				PageSize: 25,
-			}, common.NameUIDAndDataField)
+			}, common.NameAndUIDField)
 			if err != nil {
 				return fmt.Errorf("failed to find PipelineRun: %v", err)
 			}
@@ -112,17 +109,6 @@ Logs are only available for completed PipelineRuns. Running PipelineRuns do not 
 
 			// Get the PipelineRun record
 			record := resp.Records[0]
-
-			// Check if the PipelineRun is completed before attempting to get logs
-			var pipelineRun v1.PipelineRun
-			if err := json.Unmarshal(record.Data.Value, &pipelineRun); err != nil {
-				return fmt.Errorf("failed to parse PipelineRun data: %v", err)
-			}
-
-			if pipelineRun.Status.CompletionTime == nil {
-				fmt.Println("Logs are not available for running PipelineRuns. Please wait for the PipelineRun to complete before retrieving logs.")
-				return nil
-			}
 
 			// Create a new logs client
 			lc := logs.NewClient(opts.Client)

@@ -125,15 +125,15 @@ type PutBucketPolicyInput struct {
 	// For the x-amz-checksum-algorithm  header, replace  algorithm  with the
 	// supported algorithm from the following list:
 	//
-	//   - CRC32
+	//   - CRC-32
 	//
-	//   - CRC32C
+	//   - CRC-32C
 	//
-	//   - CRC64NVME
+	//   - CRC-64NVME
 	//
-	//   - SHA1
+	//   - SHA-1
 	//
-	//   - SHA256
+	//   - SHA-256
 	//
 	// For more information, see [Checking object integrity] in the Amazon S3 User Guide.
 	//
@@ -258,9 +258,6 @@ func (c *Client) addOperationPutBucketPolicyMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addRequestChecksumMetricsTracking(stack, options); err != nil {
-		return err
-	}
-	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpPutBucketPolicyValidationMiddleware(stack); err != nil {

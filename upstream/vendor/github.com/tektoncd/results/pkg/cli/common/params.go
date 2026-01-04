@@ -85,12 +85,12 @@ func (p *ResultsParams) SetHost(host string) {
 	p.host = host
 }
 
-// Token returns the authentication token.
+// Token returns the authentication token for API requests.
 func (p *ResultsParams) Token() string {
 	return p.token
 }
 
-// SetToken sets the authentication token.
+// SetToken sets the authentication token for API requests.
 //
 // Parameters:
 //   - token: The authentication token to set.
@@ -98,28 +98,28 @@ func (p *ResultsParams) SetToken(token string) {
 	p.token = token
 }
 
-// APIPath returns the API path prefix.
+// APIPath returns the API endpoint path.
 func (p *ResultsParams) APIPath() string {
 	return p.apiPath
 }
 
-// SetAPIPath sets the API path prefix.
+// SetAPIPath sets the API endpoint path.
 //
 // Parameters:
-//   - path: The API path prefix to set.
-func (p *ResultsParams) SetAPIPath(path string) {
-	p.apiPath = path
+//   - apiPath: The API endpoint path to set.
+func (p *ResultsParams) SetAPIPath(apiPath string) {
+	p.apiPath = apiPath
 }
 
-// SkipTLSVerify returns whether TLS verification should be skipped.
+// SkipTLSVerify returns whether TLS certificate verification should be skipped.
 func (p *ResultsParams) SkipTLSVerify() bool {
 	return p.skipTLSVerify
 }
 
-// SetSkipTLSVerify sets whether TLS verification should be skipped.
+// SetSkipTLSVerify sets whether TLS certificate verification should be skipped.
 //
 // Parameters:
-//   - skip: Whether to skip TLS verification.
-func (p *ResultsParams) SetSkipTLSVerify(skip bool) {
-	p.skipTLSVerify = skip
+//   - skipTLSVerify: Boolean indicating whether to skip TLS verification.
+func (p *ResultsParams) SetSkipTLSVerify(skipTLSVerify bool) {
+	p.skipTLSVerify = skipTLSVerify
 }
