@@ -13,13 +13,13 @@ metadata:
       == "release-v1.22.x" &&
       ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/opc.Dockerfile".pathChanged() ||
-      ".tekton/p12n-opc-1-22-opc-push.yaml".pathChanged())
+      ".tekton/opc-1-22-opc-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: openshift-pipelines-core-1-22
-    appstudio.openshift.io/component: p12n-opc-1-22-opc
+    appstudio.openshift.io/component: opc-1-22-opc
     pipelines.appstudio.openshift.io/type: build
-  name: p12n-opc-1-22-opc-on-push
+  name: opc-1-22-opc-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -42,7 +42,7 @@ spec:
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
-    serviceAccountName: build-pipeline-p12n-opc-1-22-opc
+    serviceAccountName: build-pipeline-opc-1-22-opc
   workspaces:
   - name: git-auth
     secret:
