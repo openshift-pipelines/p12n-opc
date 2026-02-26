@@ -13,13 +13,13 @@ metadata:
       == "next" &&
       ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/opc.Dockerfile".pathChanged() ||
-      ".tekton/p12n-opc-next-opc-push.yaml".pathChanged())
+      ".tekton/opc-next-opc-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: openshift-pipelines-core-next
-    appstudio.openshift.io/component: p12n-opc-next-opc
+    appstudio.openshift.io/component: opc-next-opc
     pipelines.appstudio.openshift.io/type: build
-  name: p12n-opc-next-opc-on-push
+  name: opc-next-opc-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -42,7 +42,7 @@ spec:
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
-    serviceAccountName: build-pipeline-p12n-opc-next-opc
+    serviceAccountName: build-pipeline-opc-next-opc
   workspaces:
   - name: git-auth
     secret:

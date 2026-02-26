@@ -20,12 +20,12 @@ USER 65532
 
 LABEL \
       com.redhat.component="openshift-pipelines-opc-rhel9-container" \
-      name="opc" \
-      version=$VERSION \
-      com.redhat.component="opc" \
-      io.k8s.display-name="opc" \
+      cpe="cpe:/a:redhat:openshift_pipelines:next::el9" \
+      description="Red Hat OpenShift Pipelines opc opc" \
+      io.k8s.description="Red Hat OpenShift Pipelines opc opc" \
+      io.k8s.display-name="Red Hat OpenShift Pipelines opc opc" \
+      io.openshift.tags="tekton,openshift,opc,opc" \
       maintainer="pipelines-extcomm@redhat.com" \
-      summary="A CLI for OpenShift Pipeline" \
-      description="opc makes it easy to work with Tekton resources in OpenShift Pipelines. It is built on top of tkn and tkn-pac and expands their capablities to the functionality and user-experience that is available on OpenShift." \
-      io.k8s.description="opc makes it easy to work with Tekton resources in OpenShift Pipelines. It is built on top of tkn and tkn-pac and expands their capablities to the functionality and user-experience that is available on OpenShift." \
-      io.openshift.tags="pipelines,tekton,openshift"
+      name="openshift-pipelines/pipelines-opc-rhel9" \
+      summary="Red Hat OpenShift Pipelines opc opc" \
+      version="next"
