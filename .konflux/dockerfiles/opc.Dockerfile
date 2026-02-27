@@ -1,5 +1,6 @@
-ARG GO_BUILDER=brew.registry.redhat.io/rh-osbs/openshift-golang-builder:v1.24
-ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+ARG GO_BUILDER=registry.access.redhat.com/ubi9/go-toolset:v1.25@sha256:4c0a6ea209ccc5028c45d3fd886dd0f51e52a8917bceea15c759a2bd2598836f
+ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+
 
 FROM $GO_BUILDER AS builder
 
@@ -14,8 +15,7 @@ FROM $RUNTIME
 ARG VERSION=opc-main
 COPY --from=builder /tmp/opc /usr/bin
 
-RUN microdnf install -y shadow-utils && \
-    groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
+RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
 
 LABEL \
