@@ -19,12 +19,12 @@ jobs:
         docker-images: false
         swap-storage: false
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - run: git fetch --prune --unshallow
 
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.25.6'
 
     - uses: goreleaser/goreleaser-action@v6.3.0
       with:
