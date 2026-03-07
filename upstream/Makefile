@@ -4,9 +4,10 @@ RESULTS_VERSION := $(shell sed -n '/[ ]*github.com\/tektoncd\/results v[0-9]*\.[
 MAG_VERSION := $(shell sed -n '/[ ]*github.com\/openshift-pipelines\/manual-approval-gate v[0-9]*\.[0-9]*\.[0-9]*/ { s/.* v//;p ;}' go.mod)
 ASSIST_VERSION := $(shell sed -n '/[ ]*github.com\/openshift-pipelines\/tekton-assist v[0-9]*\.[0-9]*\.[0-9]*/ { s/.* v//;p ;}' go.mod)
 
+
 GO := go
-GOVERSION := 1.25
-OPC_VERSION := 1.22.0
+GOVERSION := 1.24
+OPC_VERSION := 1.21.0
 BINARYNAME := opc
 GOLANGCI_LINT := golangci-lint
 
