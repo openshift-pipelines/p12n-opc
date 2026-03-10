@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -18,8 +19,6 @@ const (
 	HubURLKey                          = "hub-url"
 	HubCatalogNameKey                  = "hub-catalog-name"
 	HubCatalogTypeKey                  = "hub-catalog-type"
-	TektonHubURLDefaultValue           = "https://api.hub.tekton.dev/v1"
-	TektonHubCatalogNameDefaultValue   = "tekton"
 	ArtifactHubCatalogNameDefaultValue = "artifacthub"
 	ArtifactHubURLDefaultValue         = "https://artifacthub.io/api/v1"
 
@@ -64,10 +63,11 @@ type Settings struct {
 	SecretGHAppRepoScoped            bool   `default:"true"                             json:"secret-github-app-token-scoped"`
 	SecretGhAppTokenScopedExtraRepos string `json:"secret-github-app-scope-extra-repos"`
 
-	ErrorLogSnippet             bool   `default:"true"                                                                          json:"error-log-snippet"`
-	ErrorDetection              bool   `default:"true"                                                                          json:"error-detection-from-container-logs"`
-	ErrorDetectionNumberOfLines int    `default:"50"                                                                            json:"error-detection-max-number-of-lines"`
-	ErrorDetectionSimpleRegexp  string `default:"^(?P<filename>[^:]*):(?P<line>[0-9]+):(?P<column>[0-9]+)?([ ]*)?(?P<error>.*)" json:"error-detection-simple-regexp"`
+	ErrorLogSnippet              bool   `default:"true"                                                                          json:"error-log-snippet"`
+	ErrorLogSnippetNumberOfLines int    `default:"3"                                                                             json:"error-log-snippet-number-of-lines"`
+	ErrorDetection               bool   `default:"true"                                                                          json:"error-detection-from-container-logs"`
+	ErrorDetectionNumberOfLines  int    `default:"50"                                                                            json:"error-detection-max-number-of-lines"`
+	ErrorDetectionSimpleRegexp   string `default:"^(?P<filename>[^:]*):(?P<line>[0-9]+):(?P<column>[0-9]+)?([ ]*)?(?P<error>.*)" json:"error-detection-simple-regexp"`
 
 	EnableCancelInProgressOnPullRequests bool `json:"enable-cancel-in-progress-on-pull-requests"`
 	EnableCancelInProgressOnPush         bool `json:"enable-cancel-in-progress-on-push"`
@@ -80,7 +80,8 @@ type Settings struct {
 	CustomConsolePRTaskLog    string `json:"custom-console-url-pr-tasklog"`
 	CustomConsoleNamespaceURL string `json:"custom-console-url-namespace"`
 
-	RememberOKToTest bool `json:"remember-ok-to-test"`
+	RememberOKToTest   bool `json:"remember-ok-to-test"`
+	RequireOkToTestSHA bool `json:"require-ok-to-test-sha"`
 }
 
 func (s *Settings) DeepCopy(out *Settings) {
@@ -112,8 +113,8 @@ func DefaultValidators() map[string]func(string) error {
 	}
 }
 
-func SyncConfig(logger *zap.SugaredLogger, setting *Settings, config map[string]string, validators map[string]func(string) error) error {
-	setting.HubCatalogs = getHubCatalogs(logger, setting.HubCatalogs, config)
+func SyncConfig(logger *zap.SugaredLogger, setting *Settings, config map[string]string, validators map[string]func(string) error, httpClient *http.Client) error {
+	setting.HubCatalogs = getHubCatalogs(logger, setting.HubCatalogs, config, httpClient)
 
 	err := configutil.ValidateAndAssignValues(logger, config, setting, validators, true)
 	if err != nil {
