@@ -49,7 +49,6 @@ type ApprovalTaskSpec struct {
 type UserDetails struct {
 	Name  string `json:"name"`
 	Input string `json:"input"`
-	Message string `json:"message,omitempty"`
 }
 
 type ApproverDetails struct {

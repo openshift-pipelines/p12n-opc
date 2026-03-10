@@ -317,7 +317,7 @@ func extract(img v1.Image, w io.Writer) error {
 				name = filepath.Join(dirname, basename)
 			}
 
-			if _, ok := fileMap[name]; ok && !tombstone {
+			if _, ok := fileMap[name]; ok {
 				continue
 			}
 
@@ -514,7 +514,7 @@ func Canonical(img v1.Image) (v1.Image, error) {
 
 	cfg.Container = ""
 	cfg.Config.Hostname = ""
-	cfg.DockerVersion = "" //nolint:staticcheck // Field will be removed in next release
+	cfg.DockerVersion = ""
 
 	return ConfigFile(img, cfg)
 }
