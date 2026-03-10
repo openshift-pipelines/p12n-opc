@@ -10,10 +10,10 @@ import (
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/describe"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/generate"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/info"
-	list "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/listcmd"
+	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/list"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/logs"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/resolve"
-	versioncmd "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/versioncmd"
+	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/version"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/webhook"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params"
 	"github.com/spf13/cobra"
@@ -33,7 +33,7 @@ func Root(clients *params.Run) *cobra.Command {
 
 	ioStreams := cli.NewIOStreams()
 
-	cmd.AddCommand(versioncmd.Command(ioStreams))
+	cmd.AddCommand(version.Command(ioStreams))
 	cmd.AddCommand(info.Root(clients, ioStreams))
 	cmd.AddCommand(create.Root(clients, ioStreams))
 	cmd.AddCommand(list.Root(clients, ioStreams))
