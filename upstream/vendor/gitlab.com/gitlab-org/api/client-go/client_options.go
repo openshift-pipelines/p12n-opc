@@ -17,7 +17,6 @@
 package gitlab
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -154,18 +153,6 @@ func WithUserAgent(userAgent string) ClientOptionFunc {
 func WithCookieJar(jar http.CookieJar) ClientOptionFunc {
 	return func(c *Client) error {
 		c.jar = jar
-		return nil
-	}
-}
-
-// WithInterceptor registers an Interceptor in the client's http request call pipeline.
-// It returns a ClientOptionFunc that adds the interceptor to the client.
-func WithInterceptor(i Interceptor) ClientOptionFunc {
-	return func(c *Client) error {
-		if i == nil {
-			return errors.New("interceptor cannot be nil")
-		}
-		c.interceptors = append(c.interceptors, i)
 		return nil
 	}
 }

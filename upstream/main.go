@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"slices"
 	"syscall"
 
 	magcli "github.com/openshift-pipelines/manual-approval-gate/pkg/cli"
@@ -11,16 +10,14 @@ import (
 	opccli "github.com/openshift-pipelines/opc/pkg"
 	paccli "github.com/openshift-pipelines/pipelines-as-code/pkg/cli"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac"
-	pacversion "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/versioncmd"
+	pacversion "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/version"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params"
-	assistcli "github.com/openshift-pipelines/tekton-assist/pkg/cli"
 	"github.com/spf13/cobra"
 	tkncli "github.com/tektoncd/cli/pkg/cli"
 	"github.com/tektoncd/cli/pkg/cmd"
 	tknversion "github.com/tektoncd/cli/pkg/cmd/version"
 	"github.com/tektoncd/cli/pkg/plugins"
 	resultscmd "github.com/tektoncd/results/pkg/cli/cmd"
-	resultscommon "github.com/tektoncd/results/pkg/cli/common"
 )
 
 const (
@@ -30,7 +27,6 @@ See https://pipelinesascode.com for more details`
 	tknShortDesc     = "CLI to interact with Openshift Pipelines resources"
 	resultsShortDesc = "CLI to interact with Tekton Results API."
 	magShortDesc     = "CLI to interact with Manual Approval Gate."
-	assistShortDesc  = "CLI to analyze and diagnose Tekton failures with AI assistance."
 	binaryName       = `opc`
 )
 
@@ -54,24 +50,16 @@ func main() {
 	tkn.AddCommand(mag)
 
 	// adding results
-	rp := &resultscommon.ResultsParams{}
-	results := resultscmd.Root(rp)
+	results := resultscmd.Root()
 	results.Use = "results"
 	results.Short = resultsShortDesc
 	tkn.AddCommand(results)
 
-	// adding tekton assist
-	assist := assistcli.RootCommand()
-	assist.Use = "assist"
-	assist.Short = assistShortDesc
-	tkn.AddCommand(assist)
-
 	pluginList := plugins.GetAllTknPluginFromPaths()
 	newPluginList := []string{}
-	// remove integrated commands from the plugin list
-	excludedPlugins := []string{"pac", "assist", "results"}
+	// remove pac from the plugin list
 	for _, value := range pluginList {
-		if !slices.Contains(excludedPlugins, value) {
+		if value != "pac" {
 			newPluginList = append(newPluginList, value)
 		}
 	}
@@ -104,7 +92,7 @@ func main() {
 		}
 
 		// if we have found the plugin then sysexec it by replacing current process.
-		// #nosec G702 -- exCmd is validated by plugins.FindPlugin before use
+		//nolint:gosec // G702: plugin binary path from plugins.FindPlugin (tkn-* under plugin dir or PATH), argv forwarded like kubectl/tkn plugins.
 		if err := syscall.Exec(exCmd, append([]string{exCmd}, os.Args[2:]...), os.Environ()); err != nil {
 			fmt.Fprintf(os.Stderr, "Command finished with error: %v", err)
 			os.Exit(127)

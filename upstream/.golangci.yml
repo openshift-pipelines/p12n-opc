@@ -6,10 +6,10 @@ linters:
   enable:
     - asciicheck
     - bodyclose
-    - copyloopvar
     - dogsled
     - dupl
     - durationcheck
+    - errcheck
     - errorlint
     - exhaustive
     - forbidigo
@@ -20,6 +20,7 @@ linters:
     - gomodguard
     - goprintffuncname
     - gosec
+    - govet
     - importas
     - makezero
     - misspell
@@ -33,6 +34,7 @@ linters:
     - staticcheck
     - tparallel
     - unparam
+    - unused
     - whitespace
   settings:
     gocritic:
