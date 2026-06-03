@@ -19,13 +19,13 @@ RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot
 USER 65532
 
 LABEL \
-    com.redhat.component="openshift-pipelines-opc-rhel9-container" \
+    com.redhat.component="openshift-pipelines-opc-rhel10-container" \
     cpe="cpe:/a:redhat:openshift_pipelines:nightly::el9" \
     description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.display-name="Red Hat OpenShift Pipelines opc opc" \
     io.openshift.tags="tekton,openshift,opc,opc" \
     maintainer="pipelines-extcomm@redhat.com" \
-    name="openshift-pipelines/pipelines-opc-rhel9" \
+    name="openshift-pipelines/pipelines-opc-rhel10" \
     summary="Red Hat OpenShift Pipelines opc opc" \
-    version="latest"
+    version="nightly"
