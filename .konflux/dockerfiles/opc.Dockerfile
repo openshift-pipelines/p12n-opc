@@ -15,9 +15,6 @@ FROM $RUNTIME
 ARG VERSION=1.15
 COPY --from=builder /tmp/opc /usr/bin
 
-RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
-USER 65532
-
 LABEL \
     com.redhat.component="openshift-pipelines-opc-rhel8-container" \
     cpe="cpe:/a:redhat:openshift_pipelines:1.15::el9" \
