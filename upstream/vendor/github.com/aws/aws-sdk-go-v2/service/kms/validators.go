@@ -130,26 +130,6 @@ func (m *validateOpCreateKey) HandleInitialize(ctx context.Context, in middlewar
 	return next.HandleInitialize(ctx, in)
 }
 
-type validateOpDecrypt struct {
-}
-
-func (*validateOpDecrypt) ID() string {
-	return "OperationInputValidation"
-}
-
-func (m *validateOpDecrypt) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	input, ok := in.Parameters.(*DecryptInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
-	}
-	if err := validateOpDecryptInput(input); err != nil {
-		return out, metadata, err
-	}
-	return next.HandleInitialize(ctx, in)
-}
-
 type validateOpDeleteAlias struct {
 }
 
@@ -465,6 +445,26 @@ func (m *validateOpGenerateMac) HandleInitialize(ctx context.Context, in middlew
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGenerateMacInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetKeyLastUsage struct {
+}
+
+func (*validateOpGetKeyLastUsage) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetKeyLastUsage) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetKeyLastUsageInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetKeyLastUsageInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -994,10 +994,6 @@ func addOpCreateKeyValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateKey{}, middleware.After)
 }
 
-func addOpDecryptValidationMiddleware(stack *middleware.Stack) error {
-	return stack.Initialize.Add(&validateOpDecrypt{}, middleware.After)
-}
-
 func addOpDeleteAliasValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteAlias{}, middleware.After)
 }
@@ -1060,6 +1056,10 @@ func addOpGenerateDataKeyWithoutPlaintextValidationMiddleware(stack *middleware.
 
 func addOpGenerateMacValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGenerateMac{}, middleware.After)
+}
+
+func addOpGetKeyLastUsageValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetKeyLastUsage{}, middleware.After)
 }
 
 func addOpGetKeyPolicyValidationMiddleware(stack *middleware.Stack) error {
@@ -1313,21 +1313,6 @@ func validateOpCreateKeyInput(v *CreateKeyInput) error {
 		if err := validateTagList(v.Tags); err != nil {
 			invalidParams.AddNested("Tags", err.(smithy.InvalidParamsError))
 		}
-	}
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	} else {
-		return nil
-	}
-}
-
-func validateOpDecryptInput(v *DecryptInput) error {
-	if v == nil {
-		return nil
-	}
-	invalidParams := smithy.InvalidParamsError{Context: "DecryptInput"}
-	if v.CiphertextBlob == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("CiphertextBlob"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -1597,6 +1582,21 @@ func validateOpGenerateMacInput(v *GenerateMacInput) error {
 	}
 }
 
+func validateOpGetKeyLastUsageInput(v *GetKeyLastUsageInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetKeyLastUsageInput"}
+	if v.KeyId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("KeyId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpGetKeyPolicyInput(v *GetKeyPolicyInput) error {
 	if v == nil {
 		return nil
@@ -1782,9 +1782,6 @@ func validateOpReEncryptInput(v *ReEncryptInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "ReEncryptInput"}
-	if v.CiphertextBlob == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("CiphertextBlob"))
-	}
 	if v.DestinationKeyId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DestinationKeyId"))
 	}
