@@ -15,7 +15,9 @@ FROM $RUNTIME
 ARG VERSION=1.15
 COPY --from=builder /tmp/opc /usr/bin
 
-RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
+RUN microdnf install -y shadow-utils && \
+    groupadd -r -g 65532 nonroot && \
+    useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
 
 LABEL \
