@@ -20,7 +20,7 @@ USER 65532
 
 LABEL \
     com.redhat.component="openshift-pipelines-opc-rhel9-container" \
-    cpe="cpe:/a:redhat:openshift_pipelines:next::el9" \
+    cpe="cpe:/a:redhat:openshift_pipelines:next::" \
     description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.display-name="Red Hat OpenShift Pipelines opc opc" \
