@@ -10,16 +10,16 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "next" &&
+      == "release-v1.24.x" &&
       ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/opc.Dockerfile".pathChanged() ||
-      ".tekton/opc-next-opc-push.yaml".pathChanged())
+      ".tekton/opc-1-24-opc-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: openshift-pipelines-core-next
-    appstudio.openshift.io/component: opc-next-opc
+    appstudio.openshift.io/application: openshift-pipelines-core-1-24
+    appstudio.openshift.io/component: opc-1-24-opc
     pipelines.appstudio.openshift.io/type: build
-  name: opc-next-opc-on-push
+  name: opc-1-24-opc-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -35,7 +35,7 @@ spec:
     value: .konflux/dockerfiles/opc.Dockerfile
   - name: additional-tags
     value:
-      - "next"
+      - "v1.24.0-RC-1"
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
@@ -47,7 +47,7 @@ spec:
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
-    serviceAccountName: build-pipeline-opc-next-opc
+    serviceAccountName: build-pipeline-opc-1-24-opc
   workspaces:
   - name: git-auth
     secret:
