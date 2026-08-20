@@ -11,12 +11,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
+      - name: Check out code
+        uses: actions/checkout@v7
 
-      - uses: actions/cache@v4
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/go-build
@@ -25,9 +28,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Check out code
-        uses: actions/checkout@v6
 
       - uses: alexellis/setup-arkade@v3
       - uses: alexellis/arkade-get@master
@@ -42,12 +42,15 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
+      - name: Check out code
+        uses: actions/checkout@v7
 
-      - uses: actions/cache@v4
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/go-build
@@ -56,9 +59,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Check out code
-        uses: actions/checkout@v6
 
       - name: Build binary, making sure it does compile
         run: |
