@@ -12,6 +12,11 @@ import (
 	"unicode"
 )
 
+func init() { //nolint:gochecknoinits // registers duration format in the default registry
+	d := Duration(0)
+	Default.Add("duration", &d, IsDuration)
+}
+
 const (
 	hoursInDay = 24
 	daysInWeek = 7
@@ -169,9 +174,6 @@ func ParseDuration(s string) (time.Duration, error) {
 			scale float64 = 1 // value = v + f/scale
 		)
 		s = strings.TrimLeftFunc(s, unicode.IsSpace)
-		if s == "" {
-			break
-		}
 
 		// The next character must be 0-9.]
 		if s[0] != '.' && ('0' > s[0] || s[0] > '9') {

@@ -4,6 +4,8 @@ package s3
 
 import (
 	"context"
+	"fmt"
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	internalChecksum "github.com/aws/aws-sdk-go-v2/service/internal/checksum"
 	s3cust "github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations"
@@ -464,12 +466,6 @@ type GetObjectOutput struct {
 	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumCRC64NVME *string
 
-	// The Base64 encoded, 128-bit MD5 digest of the object. For more information, see [Checking object integrity in the Amazon S3 User Guide]
-	// .
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumMD5 *string
-
 	// The Base64 encoded, 160-bit SHA1 digest of the object. This checksum is only
 	// present if the checksum was uploaded with the object. For more information, see [Checking object integrity]
 	// in the Amazon S3 User Guide.
@@ -484,12 +480,6 @@ type GetObjectOutput struct {
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumSHA256 *string
 
-	// The Base64 encoded, 512-bit SHA512 digest of the object. For more information,
-	// see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumSHA512 *string
-
 	// The checksum type, which determines how part-level checksums are combined to
 	// create an object-level checksum for multipart objects. You can use this header
 	// response to verify that the checksum type that is received is the same checksum
@@ -498,24 +488,6 @@ type GetObjectOutput struct {
 	//
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumType types.ChecksumType
-
-	// The Base64 encoded, 128-bit XXHASH128 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH128 *string
-
-	// The Base64 encoded, 64-bit XXHASH3 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH3 *string
-
-	// The Base64 encoded, 64-bit XXHASH64 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH64 *string
 
 	// Specifies presentational information for the object.
 	ContentDisposition *string
@@ -703,6 +675,9 @@ type GetObjectOutput struct {
 }
 
 func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+		return err
+	}
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetObject{}, middleware.After)
 	if err != nil {
 		return err
@@ -711,8 +686,17 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err != nil {
 		return err
 	}
+	if err := addProtocolFinalizerMiddlewares(stack, options, "GetObject"); err != nil {
+		return fmt.Errorf("add protocol finalizers: %v", err)
+	}
 
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
+	if err = addSetLoggerMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
 	if err = addComputeContentLength(stack); err != nil {
@@ -724,13 +708,31 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
+		return err
+	}
+	if err = addRawResponseToMetadata(stack); err != nil {
+		return err
+	}
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addPutBucketContextMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIsExpressUserAgent(stack); err != nil {
@@ -745,10 +747,13 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err = addOpGetObjectValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "GetObject"), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetObject(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addMetadataRetrieverMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addGetObjectOutputChecksumMiddlewares(stack, options); err != nil {
@@ -775,6 +780,12 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
 	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
@@ -786,6 +797,14 @@ func (v *GetObjectInput) bucket() (string, bool) {
 		return "", false
 	}
 	return *v.Bucket, true
+}
+
+func newServiceMetadataMiddleware_opGetObject(region string) *awsmiddleware.RegisterServiceMetadata {
+	return &awsmiddleware.RegisterServiceMetadata{
+		Region:        region,
+		ServiceID:     ServiceID,
+		OperationName: "GetObject",
+	}
 }
 
 // getGetObjectRequestValidationModeMember gets the request checksum validation
@@ -808,7 +827,7 @@ func addGetObjectOutputChecksumMiddlewares(stack *middleware.Stack, options Opti
 		GetValidationMode:             getGetObjectRequestValidationModeMember,
 		SetValidationMode:             setGetObjectRequestValidationModeMember,
 		ResponseChecksumValidation:    options.ResponseChecksumValidation,
-		ValidationAlgorithms:          []string{"CRC64NVME", "CRC32", "CRC32C", "SHA256", "SHA1", "SHA512", "MD5", "XXHASH64", "XXHASH3", "XXHASH128"},
+		ValidationAlgorithms:          []string{"CRC64NVME", "CRC32", "CRC32C", "SHA256", "SHA1"},
 		IgnoreMultipartValidation:     true,
 		LogValidationSkipped:          !options.DisableLogOutputChecksumValidationSkipped,
 		LogMultipartValidationSkipped: !options.DisableLogOutputChecksumValidationSkipped,

@@ -143,11 +143,10 @@ func inlineTasks(tasks []tektonv1.PipelineTask, ropt *Opts, remoteResource Fetch
 }
 
 type Opts struct {
-	GenerateName       bool     // whether to GenerateName
-	RemoteTasks        bool     // whether to parse annotation to fetch tasks from remote
-	SkipInlining       []string // task to skip inlining
-	ProviderToken      string
-	RepositoryRevision string // revision for repository-local Task and Pipeline references
+	GenerateName  bool     // whether to GenerateName
+	RemoteTasks   bool     // whether to parse annotation to fetch tasks from remote
+	SkipInlining  []string // task to skip inlining
+	ProviderToken string
 }
 
 func ReadTektonTypes(ctx context.Context, log *zap.SugaredLogger, data string) (TektonTypes, error) {
@@ -216,30 +215,29 @@ func ReadTektonTypes(ctx context.Context, log *zap.SugaredLogger, data string) (
 // Pipeline/PipelineRuns/Tasks and resolve them inline as a single PipelineRun
 // generateName can be set as True to set the name as a generateName + "-" for
 // unique pipelinerun.
-func Resolve(ctx context.Context, cs *params.Run, logger *zap.SugaredLogger, providerintf provider.Interface, types TektonTypes, event *info.Event, ropt *Opts) ([]*tektonv1.PipelineRun, error) {
+func Resolve(ctx context.Context, cs *params.Run, logger *zap.SugaredLogger, providerintf provider.Interface, types TektonTypes, event *info.Event, ropt *Opts) ([]*tektonv1.PipelineRun, []string, error) {
 	if len(types.PipelineRuns) == 0 {
-		return []*tektonv1.PipelineRun{}, fmt.Errorf("could not find any PipelineRun in your .tekton/ directory")
+		return []*tektonv1.PipelineRun{}, nil, fmt.Errorf("could not find any PipelineRun in your .tekton/ directory")
 	}
 	debugf(logger, "Resolve: pipelineruns=%d pipelines=%d tasks=%d remote_tasks=%t generate_name=%t", len(types.PipelineRuns), len(types.Pipelines), len(types.Tasks), ropt.RemoteTasks, ropt.GenerateName)
 
 	if _, err := MetadataResolve(types.PipelineRuns); err != nil {
-		return []*tektonv1.PipelineRun{}, err
+		return []*tektonv1.PipelineRun{}, nil, err
 	}
 
 	rt := &matcher.RemoteTasks{
-		Run:                cs,
-		Event:              event,
-		ProviderInterface:  providerintf,
-		Logger:             logger,
-		RepositoryRevision: ropt.RepositoryRevision,
+		Run:               cs,
+		Event:             event,
+		ProviderInterface: providerintf,
+		Logger:            logger,
 	}
 
 	fetchedResources, err := resolveRemoteResources(ctx, rt, types, ropt)
 	if err != nil {
-		return []*tektonv1.PipelineRun{}, err
+		return []*tektonv1.PipelineRun{}, nil, err
 	}
 	debugf(logger, "Resolve: resolved pipelineruns=%d", len(fetchedResources))
-	return fetchedResources, nil
+	return fetchedResources, rt.DeprecatedHubResources, nil
 }
 
 func MetadataResolve(prs []*tektonv1.PipelineRun) ([]*tektonv1.PipelineRun, error) {

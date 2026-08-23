@@ -498,6 +498,7 @@ func (t *http2Client) newStream(ctx context.Context, callHdr *CallHdr, handler s
 		ct:           t,
 		done:         make(chan struct{}),
 		headerChan:   make(chan struct{}),
+		doneFunc:     callHdr.DoneFunc,
 		statsHandler: handler,
 	}
 	s.Stream.buf.init()
@@ -997,6 +998,9 @@ func (t *http2Client) closeStream(s *ClientStream, err error, rst bool, rstCode 
 	t.controlBuf.executeAndPut(addBackStreamQuota, cleanup)
 	// This will unblock write.
 	close(s.done)
+	if s.doneFunc != nil {
+		s.doneFunc()
+	}
 }
 
 // Close kicks off the shutdown process of the transport. This should be called

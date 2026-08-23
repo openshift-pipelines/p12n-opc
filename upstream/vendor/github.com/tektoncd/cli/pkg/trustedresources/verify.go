@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	cosignsignature "github.com/sigstore/cosign/v2/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,8 +34,9 @@ func Verify(o metav1.Object, keyfile, kmsKey string) error {
 	var verifier signature.Verifier
 	var err error
 	if keyfile != "" {
-		// Load verifier from key files
-		verifier, err = signature.LoadVerifierFromPEMFile(keyfile, crypto.SHA256)
+		// Load signer from key files
+		ctx := context.Background()
+		verifier, err = cosignsignature.LoadPublicKey(ctx, keyfile)
 		if err != nil {
 			return fmt.Errorf("error getting verifier from key file: %v", err)
 		}

@@ -68,9 +68,8 @@ cd codegen && ./gradlew build
 cd codegen && ./gradlew publishToMavenLocal
 ```
 
-The codegen artifact version is published to Maven Central and bumped on each
-release. For local development against unreleased codegen changes, use
-`publishToMavenLocal` and point consumers at `mavenLocal()`.
+The codegen artifact version is fixed at `0.1.0` and is not published to
+Maven Central — you **MUST** `publishToMavenLocal`.
 
 ## Runtime architecture
 

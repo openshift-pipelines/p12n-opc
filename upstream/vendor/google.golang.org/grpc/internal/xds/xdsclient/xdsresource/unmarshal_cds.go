@@ -29,7 +29,6 @@ import (
 	v3clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3aggregateclusterpb "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/aggregate/v3"
-	v3http11proxypb "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/http_11_proxy/v3"
 	v3tlspb "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"google.golang.org/grpc/internal/envconfig"
@@ -162,8 +161,7 @@ func validateClusterAndConstructClusterUpdate(cluster *v3clusterpb.Cluster, serv
 	// Process security configuration received from the control plane iff the
 	// corresponding environment variable is set.
 	var sc *SecurityConfig
-	var isHTTP11ProxyEnabled bool
-	if sc, isHTTP11ProxyEnabled, err = securityConfigFromCluster(cluster); err != nil {
+	if sc, err = securityConfigFromCluster(cluster); err != nil {
 		return ClusterUpdate{}, err
 	}
 
@@ -234,7 +232,6 @@ func validateClusterAndConstructClusterUpdate(cluster *v3clusterpb.Cluster, serv
 		TelemetryLabels:          telemetryLabels,
 		LRSReportEndpointMetrics: lrsReportEndpointMetrics,
 		Metadata:                 metadata,
-		IsHTTP11ProxyEnabled:     isHTTP11ProxyEnabled,
 	}
 
 	if lrs := cluster.GetLrsServer(); lrs != nil {
@@ -321,67 +318,50 @@ func dnsHostNameFromCluster(cluster *v3clusterpb.Cluster) (string, error) {
 
 // securityConfigFromCluster extracts the relevant security configuration from
 // the received Cluster resource.
-func securityConfigFromCluster(cluster *v3clusterpb.Cluster) (*SecurityConfig, bool, error) {
+func securityConfigFromCluster(cluster *v3clusterpb.Cluster) (*SecurityConfig, error) {
 	if tsm := cluster.GetTransportSocketMatches(); len(tsm) != 0 {
-		return nil, false, fmt.Errorf("unsupported transport_socket_matches field is non-empty: %+v", tsm)
+		return nil, fmt.Errorf("unsupported transport_socket_matches field is non-empty: %+v", tsm)
 	}
 	// The Cluster resource contains a `transport_socket` field, which contains
 	// a oneof `typed_config` field of type `protobuf.Any`. The any proto
 	// contains a marshaled representation of an `UpstreamTlsContext` message.
 	ts := cluster.GetTransportSocket()
 	if ts == nil {
-		return nil, false, nil
+		return nil, nil
 	}
-	var isHTTP11ProxyEnabled bool
-	tc := ts.GetTypedConfig()
-	typeURL := tc.GetTypeUrl()
-
-	if envconfig.XDSHTTPConnectEnabled && typeURL == version.V3HTTP11ProxyUpstreamTransportURL {
-		isHTTP11ProxyEnabled = true
-		http11Proxy := &v3http11proxypb.Http11ProxyUpstreamTransport{}
-		if err := proto.Unmarshal(tc.GetValue(), http11Proxy); err != nil {
-			return nil, false, fmt.Errorf("failed to unmarshal Http11ProxyUpstreamTransport in CDS response: %v", err)
-		}
-		ts = http11Proxy.GetTransportSocket()
-		if ts == nil {
-			return nil, true, nil
-		}
-		tc = ts.GetTypedConfig()
-		typeURL = tc.GetTypeUrl()
-	}
-
 	if name := ts.GetName(); name != transportSocketName {
-		return nil, false, fmt.Errorf("transport_socket field has unexpected name: %s", name)
+		return nil, fmt.Errorf("transport_socket field has unexpected name: %s", name)
 	}
-	if typeURL != version.V3UpstreamTLSContextURL {
-		return nil, false, fmt.Errorf("transport_socket missing typed_config or wrong type_url: %q", typeURL)
+	tc := ts.GetTypedConfig()
+	if typeURL := tc.GetTypeUrl(); typeURL != version.V3UpstreamTLSContextURL {
+		return nil, fmt.Errorf("transport_socket missing typed_config or wrong type_url: %q", typeURL)
 	}
 	upstreamCtx := &v3tlspb.UpstreamTlsContext{}
 	if err := proto.Unmarshal(tc.GetValue(), upstreamCtx); err != nil {
-		return nil, false, fmt.Errorf("failed to unmarshal UpstreamTlsContext in CDS response: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal UpstreamTlsContext in CDS response: %v", err)
 	}
 	// The following fields from `UpstreamTlsContext` are ignored:
 	// - allow_renegotiation
 	// - max_session_keys
 	if upstreamCtx.GetCommonTlsContext() == nil {
-		return nil, false, errors.New("UpstreamTlsContext in CDS response does not contain a CommonTlsContext")
+		return nil, errors.New("UpstreamTlsContext in CDS response does not contain a CommonTlsContext")
 	}
 
 	sc, err := securityConfigFromCommonTLSContext(upstreamCtx.GetCommonTlsContext(), false)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	// Set SNI related fields in SecurityConfig from UpstreamTlsContext if
 	// `GRPC_EXPERIMENTAL_XDS_SNI` is enabled.
 	if envconfig.XDSSNIEnabled {
 		sc.SNI = upstreamCtx.GetSni()
 		if len(sc.SNI) > maxSNILength {
-			return nil, false, fmt.Errorf("SNI value %q in UpstreamTlsContext in CDS response exceeds max length of %d", sc.SNI, maxSNILength)
+			return nil, fmt.Errorf("SNI value %q in UpstreamTlsContext in CDS response exceeds max length of %d", sc.SNI, maxSNILength)
 		}
 		sc.UseAutoHostSNI = upstreamCtx.GetAutoHostSni()
 		sc.AutoSNISANValidation = upstreamCtx.GetAutoSniSanValidation()
 	}
-	return sc, isHTTP11ProxyEnabled, nil
+	return sc, nil
 }
 
 // common is expected to be not nil.

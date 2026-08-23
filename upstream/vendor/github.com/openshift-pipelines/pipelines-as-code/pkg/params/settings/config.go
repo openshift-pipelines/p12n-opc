@@ -2,21 +2,25 @@ package settings
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/configutil"
+	hubType "github.com/openshift-pipelines/pipelines-as-code/pkg/hub/vars"
 	"go.uber.org/zap"
 )
 
 const (
 	PACApplicationNameDefaultValue = "Pipelines as Code CI"
 
-	HubURLKey                  = "hub-url"
-	HubCatalogNameKey          = "hub-catalog-name"
-	ArtifactHubURLDefaultValue = "https://artifacthub.io"
+	HubURLKey                          = "hub-url"
+	HubCatalogNameKey                  = "hub-catalog-name"
+	HubCatalogTypeKey                  = "hub-catalog-type"
+	ArtifactHubCatalogNameDefaultValue = "artifacthub"
+	ArtifactHubURLDefaultValue         = "https://artifacthub.io/api/v1"
 
 	CustomConsoleNameKey         = "custom-console-name"
 	CustomConsoleURLKey          = "custom-console-url"
@@ -37,6 +41,7 @@ type HubCatalog struct {
 	Index string
 	Name  string
 	URL   string
+	Type  string
 }
 
 // if there is a change performed on the default value,
@@ -94,6 +99,7 @@ func DefaultSettings() Settings {
 	hubCatalog.Store("default", HubCatalog{
 		Index: "default",
 		URL:   ArtifactHubURLDefaultValue,
+		Type:  hubType.ArtifactHubType,
 	})
 	newSettings.HubCatalogs = hubCatalog
 
@@ -112,8 +118,8 @@ func DefaultValidators() map[string]func(string) error {
 	}
 }
 
-func SyncConfig(logger *zap.SugaredLogger, setting *Settings, config map[string]string, validators map[string]func(string) error) error {
-	setting.HubCatalogs = getHubCatalogs(logger, setting.HubCatalogs, config)
+func SyncConfig(logger *zap.SugaredLogger, setting *Settings, config map[string]string, validators map[string]func(string) error, httpClient *http.Client) error {
+	setting.HubCatalogs = getHubCatalogs(logger, setting.HubCatalogs, config, httpClient)
 
 	err := configutil.ValidateAndAssignValues(logger, config, setting, validators, true)
 	if err != nil {

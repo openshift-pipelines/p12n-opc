@@ -61,8 +61,6 @@ type writer struct {
 	backoff   Backoff
 	predicate retry.Predicate
 
-	referrersTagFallback bool
-
 	scopeLock sync.Mutex
 	// Keep track of scopes that we have already requested.
 	scopeSet map[string]struct{}
@@ -108,16 +106,15 @@ func makeWriter(ctx context.Context, repo name.Repository, ls []v1.Layer, o *opt
 		scopeSet[scope] = struct{}{}
 	}
 	return &writer{
-		repo:                 repo,
-		client:               &http.Client{Transport: tr},
-		auth:                 auth,
-		transport:            o.transport,
-		progress:             o.progress,
-		backoff:              o.retryBackoff,
-		predicate:            o.retryPredicate,
-		referrersTagFallback: o.referrersTagFallback,
-		scopes:               scopes,
-		scopeSet:             scopeSet,
+		repo:      repo,
+		client:    &http.Client{Transport: tr},
+		auth:      auth,
+		transport: o.transport,
+		progress:  o.progress,
+		backoff:   o.retryBackoff,
+		predicate: o.retryPredicate,
+		scopes:    scopes,
+		scopeSet:  scopeSet,
 	}, nil
 }
 
@@ -529,9 +526,6 @@ func (w *writer) commitSubjectReferrers(ctx context.Context, sub name.Digest, ad
 	if resp.StatusCode == http.StatusOK {
 		// The registry supports Referrers API. The registry is responsible for updating the referrers list.
 		return nil
-	}
-	if !w.referrersTagFallback {
-		return fmt.Errorf("registry %s does not support the Referrers API and the referrers tag fallback is disabled", w.repo.RegistryStr())
 	}
 
 	// The registry doesn't support Referrers API, we need to update the manifest tagged with the fallback tag.
