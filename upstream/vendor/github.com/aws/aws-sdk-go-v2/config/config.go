@@ -77,8 +77,6 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the DisableRequestCompression if present in env var or shared config profile
 	resolveDisableRequestCompression,
-	// Sets the DisableClockSkewCorrection if present in env var or shared config profile
-	resolveDisableClockSkewCorrection,
 
 	// Sets the RequestMinCompressSizeBytes if present in env var or shared config profile
 	resolveRequestMinCompressSizeBytes,
@@ -98,8 +96,6 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the ServiceOptions if present in LoadOptions
 	resolveServiceOptions,
-
-	resolveRestrictFilePermissions,
 }
 
 // A Config represents a generic configuration value or set of values. This type
