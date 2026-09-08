@@ -28,4 +28,4 @@ LABEL \
     maintainer="pipelines-extcomm@redhat.com" \
     name="openshift-pipelines/pipelines-opc-rhel9" \
     summary="Red Hat OpenShift Pipelines opc opc" \
-    version="v1.22.5"
+    version="v1.22.6"
