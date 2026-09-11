@@ -3,8 +3,8 @@ module github.com/openshift-pipelines/opc
 go 1.26.4
 
 require (
-	github.com/openshift-pipelines/manual-approval-gate v0.8.0
-	github.com/openshift-pipelines/pipelines-as-code v0.42.3
+	github.com/openshift-pipelines/manual-approval-gate v0.8.1
+	github.com/openshift-pipelines/pipelines-as-code v0.42.4
 	github.com/openshift-pipelines/tekton-assist v0.1.1
 	github.com/spf13/cobra v1.10.2
 	github.com/tektoncd/cli v0.44.2
@@ -353,13 +353,13 @@ require (
 	gocloud.dev/pubsub/kafkapubsub v0.43.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
-	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
