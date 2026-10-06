@@ -23,28 +23,13 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
 )
 
-// SubjectAlternativeNameMatcher specifies how to match a certificate's Subject
-// Alternative Name (SAN).
 type SubjectAlternativeNameMatcher struct {
-	// SubjectAlternativeName, if set, must match the certificate SAN exactly.
-	SubjectAlternativeName string `json:"subjectAlternativeName"`
-	// Regexp, if set, is evaluated against the certificate SAN using Go regexp
-	// semantics.
-	//
-	// Note: regexp matching is not anchored by default; use ^...$ if you intend
-	// to match the entire SAN value.
-	Regexp regexp.Regexp `json:"regexp,omitempty"`
+	SubjectAlternativeName string        `json:"subjectAlternativeName"`
+	Regexp                 regexp.Regexp `json:"regexp,omitempty"`
 }
 
-// IssuerMatcher specifies how to match a certificate's issuer identity.
 type IssuerMatcher struct {
-	// Issuer, if set, must match the OpenID Connect issuer exactly.
-	Issuer string `json:"issuer"`
-	// Regexp, if set, is evaluated against the OpenID Connect issuer using Go
-	// regexp semantics.
-	//
-	// Note: regexp matching is not anchored by default; use ^...$ if you intend
-	// to match the entire issuer value.
+	Issuer string        `json:"issuer"`
 	Regexp regexp.Regexp `json:"regexp,omitempty"`
 }
 

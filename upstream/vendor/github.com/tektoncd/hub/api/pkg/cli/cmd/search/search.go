@@ -90,11 +90,10 @@ func Command(cli app.CLI) *cobra.Command {
 	opts := &options{cli: cli}
 
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search resource by a combination of name, kind, categories, platforms, and tags",
-		Long: ``,
-		Example:    examples,
-		Deprecated: "this command currently only works with Tekton Hub which is deprecated. It may support Artifact Hub in a future release.",
+		Use:     "search",
+		Short:   "Search resource by a combination of name, kind, categories, platforms, and tags",
+		Long:    ``,
+		Example: examples,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

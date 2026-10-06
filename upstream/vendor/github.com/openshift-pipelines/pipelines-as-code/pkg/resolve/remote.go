@@ -33,14 +33,11 @@ func assembleTaskFQDNs(pipelineURL string, tasks []string) ([]string, error) {
 		return tasks, nil // no pipeline URL, return tasks as is
 	}
 
-	// Only HTTP(S) URLs and repository file paths can serve as base for relative task resolution.
+	// Only HTTP(S) URLs can serve as base for relative task resolution.
 	// Hub catalog references (e.g., "catalog://resource:version") use a
 	// different scheme where relative paths are meaningless.
 	lowered := strings.ToLower(pipelineURL)
-	isHTTP := strings.HasPrefix(lowered, "http://") || strings.HasPrefix(lowered, "https://")
-	isRepoPath := strings.Contains(lowered, "/") && !strings.Contains(lowered, "://")
-
-	if !isHTTP && !isRepoPath {
+	if !strings.HasPrefix(lowered, "http://") && !strings.HasPrefix(lowered, "https://") {
 		return tasks, nil
 	}
 
@@ -132,9 +129,9 @@ func resolveRemoteResources(ctx context.Context, rt *matcher.RemoteTasks, types 
 					}
 					// add the pipeline to the Resources fetched for the Event
 					fetchedResourcesForEvent.Pipelines[remotePipeline] = pipeline
+					// add the pipeline URL to the run specific Resources
+					fetchedResourcesForPipelineRun.PipelineURL = remotePipeline
 				}
-				// set the pipeline URL for relative task path resolution (used by both cached and newly fetched)
-				fetchedResourcesForPipelineRun.PipelineURL = remotePipeline
 			}
 		}
 		pipelineTasks := []string{}

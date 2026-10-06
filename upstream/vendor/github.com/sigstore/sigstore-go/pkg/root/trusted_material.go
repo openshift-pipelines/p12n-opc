@@ -16,7 +16,6 @@ package root
 
 import (
 	"fmt"
-	"maps"
 	"time"
 
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -87,7 +86,9 @@ func (tmc TrustedMaterialCollection) FulcioCertificateAuthorities() []Certificat
 func (tmc TrustedMaterialCollection) RekorLogs() map[string]*TransparencyLog {
 	rekorLogs := make(map[string]*TransparencyLog)
 	for _, tm := range tmc {
-		maps.Copy(rekorLogs, tm.RekorLogs())
+		for keyID, tlogVerifier := range tm.RekorLogs() {
+			rekorLogs[keyID] = tlogVerifier
+		}
 	}
 	return rekorLogs
 }
@@ -95,7 +96,9 @@ func (tmc TrustedMaterialCollection) RekorLogs() map[string]*TransparencyLog {
 func (tmc TrustedMaterialCollection) CTLogs() map[string]*TransparencyLog {
 	rekorLogs := make(map[string]*TransparencyLog)
 	for _, tm := range tmc {
-		maps.Copy(rekorLogs, tm.CTLogs())
+		for keyID, tlogVerifier := range tm.CTLogs() {
+			rekorLogs[keyID] = tlogVerifier
+		}
 	}
 	return rekorLogs
 }

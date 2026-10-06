@@ -15,16 +15,12 @@
 
 package client
 
-import (
-	"crypto/tls"
-	"time"
-)
+import "time"
 
 // Config contains connection options for the client.
 type Config struct {
 	UserAgent string
 	Timeout   time.Duration
-	TLSConfig *tls.Config
 }
 
 // Option customizes the client Config.
@@ -41,12 +37,5 @@ func WithUserAgent(agent string) Option {
 func WithTimeout(timeout time.Duration) Option {
 	return func(c *Config) {
 		c.Timeout = timeout
-	}
-}
-
-// WithTLSConfig sets the TLS config.
-func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(c *Config) {
-		c.TLSConfig = tlsConfig
 	}
 }
