@@ -10,7 +10,7 @@ on:
 jobs:
   update-sources:
     # This line prevents the job from running if CodeFreeze is true
-    if: true
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,6 +27,13 @@ jobs:
           git clone https://github.com/openshift-pipelines/opc upstream
           pushd upstream
           git checkout -B release-v1.23.x origin/release-v1.23.x
+          popd
+      - name: Generate patches
+        run: |
+          pushd upstream
+            sed -i "s/go 1.26.6/go 1.26.5/g" go.mod
+sed -i "s/go 1.26.6/go 1.26.5/g" vendor/modules.txt
+
           popd
       - name: update-rpms
         continue-on-error: true
