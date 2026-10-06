@@ -1,4 +1,4 @@
-ARG GO_BUILDER=registry.access.redhat.com/ubi8/go-toolset:latest
+ARG GO_BUILDER=registry.access.redhat.com/ubi9/go-toolset:1.25
 ARG RUNTIME=registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 
@@ -21,13 +21,13 @@ RUN microdnf install -y shadow-utils && \
 USER 65532
 
 LABEL \
-    com.redhat.component="openshift-pipelines-opc-rhel8-container" \
-    cpe="cpe:/a:redhat:openshift_pipelines:1.15::el8" \
+    com.redhat.component="openshift-pipelines-opc-rhel9-container" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.15::el9" \
     description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.display-name="Red Hat OpenShift Pipelines opc opc" \
     io.openshift.tags="tekton,openshift,opc,opc" \
     maintainer="pipelines-extcomm@redhat.com" \
-    name="openshift-pipelines/pipelines-opc-rhel8" \
+    name="openshift-pipelines/pipelines-opc-rhel9" \
     summary="Red Hat OpenShift Pipelines opc opc" \
     version="v1.15.5"

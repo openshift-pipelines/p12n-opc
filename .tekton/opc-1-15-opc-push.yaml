@@ -30,20 +30,15 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/pipelines-opc-rhel8:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/pipelines-opc-rhel9:{{revision}}
   - name: dockerfile
     value: .konflux/dockerfiles/opc.Dockerfile
   - name: additional-tags
     value:
-      - "1.15.5"
+      - "v1.15.5"
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
-  - name: repo-name
-    value: "opc"
-  - name: slack-group-ids
-    value:
-      - "S050DUBQXST"
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
