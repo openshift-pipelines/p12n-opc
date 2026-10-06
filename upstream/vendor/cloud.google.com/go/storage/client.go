@@ -265,9 +265,6 @@ type openWriterParams struct {
 	// sendCRC32C - see `Writer.SendCRC32C`.
 	// Optional.
 	sendCRC32C bool
-	// disableAutoChecksum - see `Writer.DisableAutoChecksum`.
-	// Optional.
-	disableAutoChecksum bool
 	// append - Write with appendable object semantics.
 	// Optional.
 	append bool
@@ -303,12 +300,6 @@ type newMultiRangeDownloaderParams struct {
 	gen           int64
 	object        string
 	handle        *ReadHandle
-
-	// Multistream settings.
-	minConnections      int
-	maxConnections      int
-	targetPendingRanges int
-	targetPendingBytes  int
 }
 
 type newRangeReaderParams struct {

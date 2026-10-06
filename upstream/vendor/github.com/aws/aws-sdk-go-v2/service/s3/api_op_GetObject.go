@@ -309,8 +309,9 @@ type GetObjectInput struct {
 	// Confirms that the requester knows that they will be charged for the request.
 	// Bucket owners need not specify this parameter in their requests. If either the
 	// source or destination S3 bucket has Requester Pays enabled, the requester will
-	// pay for the corresponding charges. For information about downloading objects
-	// from Requester Pays buckets, see [Downloading Objects in Requester Pays Buckets]in the Amazon S3 User Guide.
+	// pay for corresponding charges to copy the object. For information about
+	// downloading objects from Requester Pays buckets, see [Downloading Objects in Requester Pays Buckets]in the Amazon S3 User
+	// Guide.
 	//
 	// This functionality is not supported for directory buckets.
 	//
@@ -466,12 +467,6 @@ type GetObjectOutput struct {
 	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumCRC64NVME *string
 
-	// The Base64 encoded, 128-bit MD5 digest of the object. For more information, see [Checking object integrity in the Amazon S3 User Guide]
-	// .
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumMD5 *string
-
 	// The Base64 encoded, 160-bit SHA1 digest of the object. This checksum is only
 	// present if the checksum was uploaded with the object. For more information, see [Checking object integrity]
 	// in the Amazon S3 User Guide.
@@ -486,12 +481,6 @@ type GetObjectOutput struct {
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumSHA256 *string
 
-	// The Base64 encoded, 512-bit SHA512 digest of the object. For more information,
-	// see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumSHA512 *string
-
 	// The checksum type, which determines how part-level checksums are combined to
 	// create an object-level checksum for multipart objects. You can use this header
 	// response to verify that the checksum type that is received is the same checksum
@@ -500,24 +489,6 @@ type GetObjectOutput struct {
 	//
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumType types.ChecksumType
-
-	// The Base64 encoded, 128-bit XXHASH128 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH128 *string
-
-	// The Base64 encoded, 64-bit XXHASH3 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH3 *string
-
-	// The Base64 encoded, 64-bit XXHASH64 checksum of the object. For more
-	// information, see [Checking object integrity in the Amazon S3 User Guide].
-	//
-	// [Checking object integrity in the Amazon S3 User Guide]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
-	ChecksumXXHASH64 *string
 
 	// Specifies presentational information for the object.
 	ContentDisposition *string
@@ -738,7 +709,7 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options, c); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -760,6 +731,9 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	if err = addPutBucketContextMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -857,7 +831,7 @@ func addGetObjectOutputChecksumMiddlewares(stack *middleware.Stack, options Opti
 		GetValidationMode:             getGetObjectRequestValidationModeMember,
 		SetValidationMode:             setGetObjectRequestValidationModeMember,
 		ResponseChecksumValidation:    options.ResponseChecksumValidation,
-		ValidationAlgorithms:          []string{"CRC64NVME", "CRC32", "CRC32C", "SHA256", "SHA1", "SHA512", "MD5", "XXHASH64", "XXHASH3", "XXHASH128"},
+		ValidationAlgorithms:          []string{"CRC64NVME", "CRC32", "CRC32C", "SHA256", "SHA1"},
 		IgnoreMultipartValidation:     true,
 		LogValidationSkipped:          !options.DisableLogOutputChecksumValidationSkipped,
 		LogMultipartValidationSkipped: !options.DisableLogOutputChecksumValidationSkipped,

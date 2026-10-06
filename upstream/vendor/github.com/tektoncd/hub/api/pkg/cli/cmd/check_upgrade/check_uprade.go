@@ -110,10 +110,9 @@ func Command(cli app.CLI) *cobra.Command {
 	opts := &options{cli: cli}
 
 	cmd := &cobra.Command{
-		Use:        "check-upgrade",
-		Short:      "Check for upgrades of resources if present",
-		Long:       ``,
-		Deprecated: "this command currently only works with Tekton Hub which is deprecated. It may support Artifact Hub in a future release.",
+		Use:   "check-upgrade",
+		Short: "Check for upgrades of resources if present",
+		Long:  ``,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

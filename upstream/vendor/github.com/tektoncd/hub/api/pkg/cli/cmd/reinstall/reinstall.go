@@ -65,10 +65,9 @@ func Command(cli app.CLI) *cobra.Command {
 	opts := &options{cli: cli}
 
 	cmd := &cobra.Command{
-		Use:        "reinstall",
-		Short:      "Reinstall a resource by its kind and name",
-		Long:       ``,
-		Deprecated: "this command currently only works with Tekton Hub which is deprecated. It may support Artifact Hub in a future release.",
+		Use:   "reinstall",
+		Short: "Reinstall a resource by its kind and name",
+		Long:  ``,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

@@ -105,7 +105,6 @@ type BucketLocationConstraint string
 const (
 	BucketLocationConstraintAfSouth1     BucketLocationConstraint = "af-south-1"
 	BucketLocationConstraintApEast1      BucketLocationConstraint = "ap-east-1"
-	BucketLocationConstraintApEast2      BucketLocationConstraint = "ap-east-2"
 	BucketLocationConstraintApNortheast1 BucketLocationConstraint = "ap-northeast-1"
 	BucketLocationConstraintApNortheast2 BucketLocationConstraint = "ap-northeast-2"
 	BucketLocationConstraintApNortheast3 BucketLocationConstraint = "ap-northeast-3"
@@ -116,10 +115,7 @@ const (
 	BucketLocationConstraintApSoutheast3 BucketLocationConstraint = "ap-southeast-3"
 	BucketLocationConstraintApSoutheast4 BucketLocationConstraint = "ap-southeast-4"
 	BucketLocationConstraintApSoutheast5 BucketLocationConstraint = "ap-southeast-5"
-	BucketLocationConstraintApSoutheast6 BucketLocationConstraint = "ap-southeast-6"
-	BucketLocationConstraintApSoutheast7 BucketLocationConstraint = "ap-southeast-7"
 	BucketLocationConstraintCaCentral1   BucketLocationConstraint = "ca-central-1"
-	BucketLocationConstraintCaWest1      BucketLocationConstraint = "ca-west-1"
 	BucketLocationConstraintCnNorth1     BucketLocationConstraint = "cn-north-1"
 	BucketLocationConstraintCnNorthwest1 BucketLocationConstraint = "cn-northwest-1"
 	BucketLocationConstraintEu           BucketLocationConstraint = "EU"
@@ -134,7 +130,6 @@ const (
 	BucketLocationConstraintIlCentral1   BucketLocationConstraint = "il-central-1"
 	BucketLocationConstraintMeCentral1   BucketLocationConstraint = "me-central-1"
 	BucketLocationConstraintMeSouth1     BucketLocationConstraint = "me-south-1"
-	BucketLocationConstraintMxCentral1   BucketLocationConstraint = "mx-central-1"
 	BucketLocationConstraintSaEast1      BucketLocationConstraint = "sa-east-1"
 	BucketLocationConstraintUsEast2      BucketLocationConstraint = "us-east-2"
 	BucketLocationConstraintUsGovEast1   BucketLocationConstraint = "us-gov-east-1"
@@ -151,7 +146,6 @@ func (BucketLocationConstraint) Values() []BucketLocationConstraint {
 	return []BucketLocationConstraint{
 		"af-south-1",
 		"ap-east-1",
-		"ap-east-2",
 		"ap-northeast-1",
 		"ap-northeast-2",
 		"ap-northeast-3",
@@ -162,10 +156,7 @@ func (BucketLocationConstraint) Values() []BucketLocationConstraint {
 		"ap-southeast-3",
 		"ap-southeast-4",
 		"ap-southeast-5",
-		"ap-southeast-6",
-		"ap-southeast-7",
 		"ca-central-1",
-		"ca-west-1",
 		"cn-north-1",
 		"cn-northwest-1",
 		"EU",
@@ -180,7 +171,6 @@ func (BucketLocationConstraint) Values() []BucketLocationConstraint {
 		"il-central-1",
 		"me-central-1",
 		"me-south-1",
-		"mx-central-1",
 		"sa-east-1",
 		"us-east-2",
 		"us-gov-east-1",
@@ -208,25 +198,6 @@ func (BucketLogsPermission) Values() []BucketLogsPermission {
 		"FULL_CONTROL",
 		"READ",
 		"WRITE",
-	}
-}
-
-type BucketNamespace string
-
-// Enum values for BucketNamespace
-const (
-	BucketNamespaceAccountRegional BucketNamespace = "account-regional"
-	BucketNamespaceGlobal          BucketNamespace = "global"
-)
-
-// Values returns all known values for BucketNamespace. Note that this can be
-// expanded in the future, and so it is only as up to date as the client.
-//
-// The ordering of this slice is not guaranteed to be stable across updates.
-func (BucketNamespace) Values() []BucketNamespace {
-	return []BucketNamespace{
-		"account-regional",
-		"global",
 	}
 }
 
@@ -275,11 +246,6 @@ const (
 	ChecksumAlgorithmSha1      ChecksumAlgorithm = "SHA1"
 	ChecksumAlgorithmSha256    ChecksumAlgorithm = "SHA256"
 	ChecksumAlgorithmCrc64nvme ChecksumAlgorithm = "CRC64NVME"
-	ChecksumAlgorithmSha512    ChecksumAlgorithm = "SHA512"
-	ChecksumAlgorithmMd5       ChecksumAlgorithm = "MD5"
-	ChecksumAlgorithmXxhash64  ChecksumAlgorithm = "XXHASH64"
-	ChecksumAlgorithmXxhash3   ChecksumAlgorithm = "XXHASH3"
-	ChecksumAlgorithmXxhash128 ChecksumAlgorithm = "XXHASH128"
 )
 
 // Values returns all known values for ChecksumAlgorithm. Note that this can be
@@ -293,11 +259,6 @@ func (ChecksumAlgorithm) Values() []ChecksumAlgorithm {
 		"SHA1",
 		"SHA256",
 		"CRC64NVME",
-		"SHA512",
-		"MD5",
-		"XXHASH64",
-		"XXHASH3",
-		"XXHASH128",
 	}
 }
 
@@ -754,7 +715,6 @@ const (
 	InventoryOptionalFieldChecksumAlgorithm            InventoryOptionalField = "ChecksumAlgorithm"
 	InventoryOptionalFieldObjectAccessControlList      InventoryOptionalField = "ObjectAccessControlList"
 	InventoryOptionalFieldObjectOwner                  InventoryOptionalField = "ObjectOwner"
-	InventoryOptionalFieldLifecycleExpirationDate      InventoryOptionalField = "LifecycleExpirationDate"
 )
 
 // Values returns all known values for InventoryOptionalField. Note that this can
@@ -778,7 +738,6 @@ func (InventoryOptionalField) Values() []InventoryOptionalField {
 		"ChecksumAlgorithm",
 		"ObjectAccessControlList",
 		"ObjectOwner",
-		"LifecycleExpirationDate",
 	}
 }
 

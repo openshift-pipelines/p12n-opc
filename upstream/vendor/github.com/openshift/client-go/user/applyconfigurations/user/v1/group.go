@@ -13,17 +13,10 @@ import (
 
 // GroupApplyConfiguration represents a declarative configuration of the Group type for use
 // with apply.
-//
-// # Group represents a referenceable set of Users
-//
-// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 type GroupApplyConfiguration struct {
-	metav1.TypeMetaApplyConfiguration `json:",inline"`
-	// metadata is the standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// users is the list of users in this group.
-	Users *userv1.OptionalNames `json:"users,omitempty"`
+	Users                                *userv1.OptionalNames `json:"users,omitempty"`
 }
 
 // Group constructs a declarative configuration of the Group type for use with
@@ -36,14 +29,29 @@ func Group(name string) *GroupApplyConfiguration {
 	return b
 }
 
-// ExtractGroupFrom extracts the applied configuration owned by fieldManager from
-// group for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractGroup extracts the applied configuration owned by fieldManager from
+// group. If no managedFields are found in group for fieldManager, a
+// GroupApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // group must be a unmodified Group API object that was retrieved from the Kubernetes API.
-// ExtractGroupFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractGroup provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractGroupFrom(group *userv1.Group, fieldManager string, subresource string) (*GroupApplyConfiguration, error) {
+// Experimental!
+func ExtractGroup(group *userv1.Group, fieldManager string) (*GroupApplyConfiguration, error) {
+	return extractGroup(group, fieldManager, "")
+}
+
+// ExtractGroupStatus is the same as ExtractGroup except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractGroupStatus(group *userv1.Group, fieldManager string) (*GroupApplyConfiguration, error) {
+	return extractGroup(group, fieldManager, "status")
+}
+
+func extractGroup(group *userv1.Group, fieldManager string, subresource string) (*GroupApplyConfiguration, error) {
 	b := &GroupApplyConfiguration{}
 	err := managedfields.ExtractInto(group, internal.Parser().Type("com.github.openshift.api.user.v1.Group"), fieldManager, b, subresource)
 	if err != nil {
@@ -55,22 +63,6 @@ func ExtractGroupFrom(group *userv1.Group, fieldManager string, subresource stri
 	b.WithAPIVersion("user.openshift.io/v1")
 	return b, nil
 }
-
-// ExtractGroup extracts the applied configuration owned by fieldManager from
-// group. If no managedFields are found in group for fieldManager, a
-// GroupApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// group must be a unmodified Group API object that was retrieved from the Kubernetes API.
-// ExtractGroup provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractGroup(group *userv1.Group, fieldManager string) (*GroupApplyConfiguration, error) {
-	return ExtractGroupFrom(group, fieldManager, "")
-}
-
-func (b GroupApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
@@ -238,24 +230,8 @@ func (b *GroupApplyConfiguration) WithUsers(value userv1.OptionalNames) *GroupAp
 	return b
 }
 
-// GetKind retrieves the value of the Kind field in the declarative configuration.
-func (b *GroupApplyConfiguration) GetKind() *string {
-	return b.TypeMetaApplyConfiguration.Kind
-}
-
-// GetAPIVersion retrieves the value of the APIVersion field in the declarative configuration.
-func (b *GroupApplyConfiguration) GetAPIVersion() *string {
-	return b.TypeMetaApplyConfiguration.APIVersion
-}
-
 // GetName retrieves the value of the Name field in the declarative configuration.
 func (b *GroupApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Name
-}
-
-// GetNamespace retrieves the value of the Namespace field in the declarative configuration.
-func (b *GroupApplyConfiguration) GetNamespace() *string {
-	b.ensureObjectMetaApplyConfigurationExists()
-	return b.ObjectMetaApplyConfiguration.Namespace
 }

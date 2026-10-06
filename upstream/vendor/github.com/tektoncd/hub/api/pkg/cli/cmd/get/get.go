@@ -54,10 +54,9 @@ func Command(cli app.CLI) *cobra.Command {
 	opts := &options{cli: cli}
 
 	cmd := &cobra.Command{
-		Use:        "get",
-		Short:      "Get resource manifest by its name, kind, catalog, and version",
-		Long:       ``,
-		Deprecated: "this command currently only works with Tekton Hub which is deprecated. It may support Artifact Hub in a future release.",
+		Use:   "get",
+		Short: "Get resource manifest by its name, kind, catalog, and version",
+		Long:  ``,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

@@ -1,10 +1,7 @@
-all: vet test
+all: vet staticcheck test
 
 test:
-	go test -covermode=count -coverprofile=coverage.out .
-
-test-legacy:
-	GODEBUG=x509sha1=1 go test -tags=legacy -covermode=count -coverprofile=coverage.out .
+	GODEBUG=x509sha1=1 go test -covermode=count -coverprofile=coverage.out .
 
 showcoverage: test
 	go tool cover -html=coverage.out
@@ -12,8 +9,12 @@ showcoverage: test
 vet:
 	go vet .
 
-golangci-lint:
-	golangci-lint run
+lint:
+	golint .
+
+staticcheck:
+	staticcheck .
 
 gettools:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go get -u honnef.co/go/tools/...
+	go get -u golang.org/x/lint/golint

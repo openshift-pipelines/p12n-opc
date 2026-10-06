@@ -180,7 +180,7 @@ func (f *Fulcio) GetCertificate(ctx context.Context, keypair Keypair, opts *Cert
 		request.Header.Add("Content-Type", "application/json")
 		request.Header.Add("User-Agent", util.ConstructUserAgent())
 
-		response, err = f.client.Do(request) // #nosec G704 -- Client controls the URL
+		response, err = f.client.Do(request)
 		if err != nil {
 			return nil, err
 		}
@@ -189,8 +189,6 @@ func (f *Fulcio) GetCertificate(ctx context.Context, keypair Keypair, opts *Cert
 			// Not a retryable HTTP status code, so don't retry
 			break
 		}
-
-		response.Body.Close()
 
 		delay := time.Duration(math.Pow(2, float64(attempts)))
 		timer := time.NewTimer(delay * time.Second)
@@ -202,11 +200,8 @@ func (f *Fulcio) GetCertificate(ctx context.Context, keypair Keypair, opts *Cert
 		}
 		attempts++
 	}
-	if response != nil && response.Body != nil {
-		defer response.Body.Close()
-	}
 
-	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}

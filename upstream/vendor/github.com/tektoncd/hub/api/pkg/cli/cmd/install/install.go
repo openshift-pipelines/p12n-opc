@@ -49,18 +49,18 @@ type options struct {
 }
 
 var cmdExamples string = `
-Install a %S of name 'foo' from Artifact Hub:
+Install a %S of name 'foo':
 
-    tkn hub install %s foo --type artifact --from tekton-catalog-tasks --version 0.3.0
+    tkn hub install %s foo
 
 or
 
-Install a %S of name 'foo' from Tekton Hub (DEPRECATED):
+Install a %S of name 'foo' of version '0.3' from Catalog 'Tekton':
 
     tkn hub install %s foo --version 0.3 --from tekton
 
-Note: Tekton Hub is deprecated. Use '--type artifact' with Artifact Hub instead.
-Resources in Artifact Hub follow full SemVer - <major>.<minor>.<patch> (e.g. 0.3.0).
+Note that the resources in Artifact Hub follow full SemVer - <major>.<minor>.<patch> (e.g. 0.3.0),
+please double check the version used
 `
 
 func Command(cli app.CLI) *cobra.Command {

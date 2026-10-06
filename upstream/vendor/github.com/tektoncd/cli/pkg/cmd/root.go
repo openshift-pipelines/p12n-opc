@@ -23,6 +23,7 @@ import (
 	"github.com/tektoncd/cli/pkg/cli"
 	"github.com/tektoncd/cli/pkg/cli/prerun"
 	"github.com/tektoncd/cli/pkg/cmd/bundle"
+	"github.com/tektoncd/cli/pkg/cmd/chain"
 	"github.com/tektoncd/cli/pkg/cmd/clustertriggerbinding"
 	"github.com/tektoncd/cli/pkg/cmd/completion"
 	"github.com/tektoncd/cli/pkg/cmd/customrun"
@@ -101,6 +102,7 @@ func Root(p cli.Params) *cobra.Command {
 
 	cmd.AddCommand(
 		bundle.Command(p),
+		chain.Command(p),
 		clustertriggerbinding.Command(p),
 		completion.Command(),
 		eventlistener.Command(p),
