@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -19,14 +20,20 @@ const (
 	defaultPipelinesAscodeSecretWebhookSecretKey = "webhook.secret"
 )
 
+// ErrSecretNotFound indicates that a Repository's secret is misconfigured.
+// For example if a required secret is not specified or the required secret
+// does not exist.
+var ErrSecretNotFound = errors.New("secret not found")
+
 type SecretFromRepository struct {
-	K8int       kubeinteraction.Interface
-	Config      *info.ProviderConfig
-	Event       *info.Event
-	Repo        *apipac.Repository
-	WebhookType string
-	Namespace   string
-	Logger      *zap.SugaredLogger
+	K8int                 kubeinteraction.Interface
+	Config                *info.ProviderConfig
+	Event                 *info.Event
+	Repo                  *apipac.Repository
+	WebhookType           string
+	Namespace             string
+	InheritedGlobalSecret bool
+	Logger                *zap.SugaredLogger
 }
 
 // Get grab the secret from the repository CRD.
@@ -56,8 +63,10 @@ func (s *SecretFromRepository) Get(ctx context.Context) error {
 		Name:      s.Repo.Spec.GitProvider.Secret.Name,
 		Key:       gitProviderSecretKey,
 	}); err != nil {
-		return err
+		return fmt.Errorf("%w: error getting provider secret: %w", ErrSecretNotFound, err)
 	}
+	s.Event.Provider.GitProviderSecretNamespace = s.Namespace
+	s.Event.Provider.GitProviderSecretFromGlobalRepo = s.InheritedGlobalSecret
 
 	// if we don't have a provider token in repo crd we won't be able to do much with it
 	// let it go and it will fail later on when doing SetClients or success if it was done from a github app
@@ -88,7 +97,7 @@ func (s *SecretFromRepository) Get(ctx context.Context) error {
 		Name:      s.Repo.Spec.GitProvider.WebhookSecret.Name,
 		Key:       gitProviderWebhookSecretKey,
 	}); err != nil {
-		return err
+		return fmt.Errorf("%w: error getting webhook secret: %w", ErrSecretNotFound, err)
 	}
 	if s.Event.Provider.WebhookSecret != "" {
 		s.Event.Provider.WebhookSecretFromRepo = true
