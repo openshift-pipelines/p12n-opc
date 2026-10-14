@@ -235,7 +235,7 @@ func (v *Provider) GetConfig() *info.ProviderConfig {
 	}
 }
 
-func MakeClient(ctx context.Context, apiURL, token string) (*github.Client, string, *string) {
+func MakeClient(ctx context.Context, apiURL, token string) (*github.Client, string, *string, error) {
 	var client *github.Client
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
@@ -252,13 +252,17 @@ func MakeClient(ctx context.Context, apiURL, token string) (*github.Client, stri
 	if apiURL != "" && apiURL != apiPublicURL {
 		providerName = "github-enterprise"
 		uploadURL := apiURL + "/api/uploads"
-		client, _ = github.NewClient(tc).WithEnterpriseURLs(apiURL, uploadURL)
+		var err error
+		client, err = github.NewClient(tc).WithEnterpriseURLs(apiURL, uploadURL)
+		if err != nil {
+			return nil, providerName, nil, fmt.Errorf("failed to create github enterprise client for %s: %w", apiURL, err)
+		}
 	} else {
 		client = github.NewClient(tc)
 		apiURL = client.BaseURL.String()
 	}
 
-	return client, providerName, github.Ptr(apiURL)
+	return client, providerName, github.Ptr(apiURL), nil
 }
 
 func parseTS(headerTS string) (time.Time, error) {
@@ -322,7 +326,10 @@ func (v *Provider) checkWebhookSecretValidity(ctx context.Context, cw clockwork.
 }
 
 func (v *Provider) SetClient(ctx context.Context, run *params.Run, event *info.Event, repo *v1alpha1.Repository, eventsEmitter *events.EventEmitter) error {
-	client, providerName, apiURL := MakeClient(ctx, event.Provider.URL, event.Provider.Token)
+	client, providerName, apiURL, err := MakeClient(ctx, event.Provider.URL, event.Provider.Token)
+	if err != nil {
+		return err
+	}
 	v.providerName = providerName
 	v.Run = run
 	v.repo = repo
@@ -343,7 +350,7 @@ func (v *Provider) SetClient(ctx context.Context, run *params.Run, event *info.E
 	if event.InstallationID != 0 {
 		integration = "github-app"
 	}
-	run.Clients.Log.Infof(integration+": initialized OAuth2 client for providerName=%s providerURL=%s", v.providerName, event.Provider.URL)
+	v.Logger.Infof(integration+": initialized OAuth2 client for providerName=%s providerURL=%s", v.providerName, event.Provider.URL)
 
 	v.APIURL = apiURL
 
@@ -380,8 +387,51 @@ func (v *Provider) SetClient(ctx context.Context, run *params.Run, event *info.E
 	return nil
 }
 
-func (v *Provider) GetCommitStatuses(_ context.Context, _ *info.Event) ([]provider.CommitStatusInfo, error) {
-	return nil, nil
+func (v *Provider) GetCommitStatuses(ctx context.Context, event *info.Event) ([]provider.CommitStatusInfo, error) {
+	if v.ghClient == nil {
+		return nil, fmt.Errorf("no github client has been initialized")
+	}
+
+	var result []provider.CommitStatusInfo
+
+	if event.InstallationID > 0 {
+		checkRuns, err := v.fetchAllCheckRunPagesWithRetry(ctx, event)
+		if err != nil {
+			return nil, err
+		}
+		for _, cr := range checkRuns {
+			status := cr.GetStatus()
+			if status == "completed" {
+				status = cr.GetConclusion()
+			}
+			result = append(result, provider.CommitStatusInfo{
+				Name:   cr.GetName(),
+				Status: status,
+			})
+		}
+	} else {
+		opt := &github.ListOptions{PerPage: v.PaginedNumber}
+		for {
+			statuses, resp, err := wrapAPI(v, "list_statuses", func() ([]*github.RepoStatus, *github.Response, error) {
+				return v.Client().Repositories.ListStatuses(ctx, event.Organization, event.Repository, event.SHA, opt)
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, s := range statuses {
+				result = append(result, provider.CommitStatusInfo{
+					Name:   s.GetContext(),
+					Status: s.GetState(),
+				})
+			}
+			if resp == nil || resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+		}
+	}
+
+	return result, nil
 }
 
 // GetTektonDir retrieves all YAML files from the .tekton directory and returns them as a single concatenated multi-document YAML file.
@@ -688,7 +738,7 @@ func (v *Provider) fetchChangedFiles(ctx context.Context, runevent *info.Event) 
 					changedFiles.Renamed = append(changedFiles.Renamed, *repoCommit[j].Filename)
 				}
 			}
-			if resp.NextPage == 0 {
+			if resp == nil || resp.NextPage == 0 {
 				break
 			}
 			opt.Page = resp.NextPage
@@ -756,7 +806,7 @@ func ListRepos(ctx context.Context, v *Provider) ([]string, error) {
 		for i := range repoList.Repositories {
 			repoURLs = append(repoURLs, *repoList.Repositories[i].HTMLURL)
 		}
-		if resp.NextPage == 0 {
+		if resp == nil || resp.NextPage == 0 {
 			break
 		}
 		opt.Page = resp.NextPage
@@ -801,9 +851,10 @@ func (v *Provider) CreateToken(ctx context.Context, repository []string, event *
 }
 
 func (v *Provider) expandGlobAndAddRepoIDs(ctx context.Context, repoPattern string, cache *[]*github.Repository) error {
-	// We can skip error check here as all the glob compilation has been checked
-	// before this method is called.
-	reposToScope, _ := glob.Compile(repoPattern)
+	reposToScope, err := glob.Compile(repoPattern)
+	if err != nil {
+		return fmt.Errorf("invalid repo glob pattern %q: %w", repoPattern, err)
+	}
 
 	if *cache == nil {
 		repos, err := v.listAppRepos(ctx)
@@ -837,7 +888,7 @@ func (v *Provider) listAppRepos(ctx context.Context) ([]*github.Repository, erro
 
 		allRepos = append(allRepos, repoList.Repositories...)
 
-		if resp.NextPage == 0 {
+		if resp == nil || resp.NextPage == 0 {
 			break
 		}
 		opt.Page = resp.NextPage
@@ -973,10 +1024,6 @@ func (v *Provider) newCommentTraceLogContext(ctx context.Context, event *info.Ev
 }
 
 func (v *Provider) debugCommentPhase(event *info.Event, trace commentTraceLogContext, phase string, kv ...any) {
-	if v.Logger == nil {
-		return
-	}
-
 	org := "unknown"
 	repo := "unknown"
 	pr := 0
@@ -987,7 +1034,8 @@ func (v *Provider) debugCommentPhase(event *info.Event, trace commentTraceLogCon
 	}
 
 	baseFields := make([]any, 0, 18+len(kv))
-	baseFields = append(baseFields,
+	baseFields = append(
+		baseFields,
 		"phase", phase,
 		"organization", org,
 		"repository", repo,
@@ -1038,13 +1086,15 @@ func (v *Provider) listCommentsByMarker(
 	}
 
 	if len(comments) == v.PaginedNumber {
-		v.debugCommentPhase(event, trace, phase+"_pagination_warning",
+		v.debugCommentPhase(
+			event, trace, phase+"_pagination_warning",
 			"fetched_count", len(comments),
 			"note", "response returned exactly PerPage comments; marker matches beyond page 1 may be missed",
 		)
 	}
 
-	v.debugCommentPhase(event, trace, phase,
+	v.debugCommentPhase(
+		event, trace, phase,
 		"fetched_count", len(comments),
 		"matched_count", len(matchedComments),
 		"matched_comments", compactCommentIDs(matchedComments),
@@ -1071,7 +1121,8 @@ func (v *Provider) CreateComment(ctx context.Context, event *info.Event, commit,
 		}
 
 		if len(existingComments) > 1 {
-			v.debugCommentPhase(event, trace, "duplicate_detected",
+			v.debugCommentPhase(
+				event, trace, "duplicate_detected",
 				"matched_count", len(existingComments),
 				"matched_comments", compactCommentIDs(existingComments),
 			)
@@ -1110,14 +1161,16 @@ func (v *Provider) CreateComment(ctx context.Context, event *info.Event, commit,
 		})
 	})
 	if err != nil {
-		v.debugCommentPhase(event, trace, "create_comment_done",
+		v.debugCommentPhase(
+			event, trace, "create_comment_done",
 			"status_code", responseStatusCode(createResp),
 			"github_request_id", githubRequestID(createResp),
 			"create_error", err.Error(),
 		)
 		return err
 	}
-	v.debugCommentPhase(event, trace, "create_comment_done",
+	v.debugCommentPhase(
+		event, trace, "create_comment_done",
 		"status_code", responseStatusCode(createResp),
 		"github_request_id", githubRequestID(createResp),
 		"created_comment_id", createdComment.GetID(),
@@ -1191,7 +1244,10 @@ func (v *Provider) fetchAppSlug(ctx context.Context, apiURL string) (string, err
 		return "", err
 	}
 
-	client, _, _ := MakeClient(ctx, apiURL, tokenString)
+	client, _, _, err := MakeClient(ctx, apiURL, tokenString)
+	if err != nil {
+		return "", err
+	}
 	app, _, err := client.Apps.Get(ctx, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to get app info: %w", err)
