@@ -1,5 +1,5 @@
 ARG GO_BUILDER=registry.access.redhat.com/ubi9/go-toolset:latest@sha256:c51f0f31cbaa7e91dede6013f636d54fe10dd7d581cfc4cda014ba9d62bcd779
-ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest
+ARG UBI_RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 
 FROM $GO_BUILDER AS builder
@@ -11,7 +11,7 @@ RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; g
 ENV GOEXPERIMENT="strictfipsruntime"
 RUN go build -buildvcs=false -mod=vendor -tags disable_gcp,strictfipsruntime  -o /tmp/opc main.go
 
-FROM $RUNTIME
+FROM $UBI_RUNTIME
 ARG VERSION=next
 COPY --from=builder /tmp/opc /usr/bin
 
