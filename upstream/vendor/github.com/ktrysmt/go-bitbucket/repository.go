@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -309,19 +309,19 @@ func (r *Repository) Get(ro *RepositoryOptions) (*Repository, error) {
 }
 
 func (r *Repository) buildContentsURL(ro *RepositoryFilesOptions) (string, error) {
-	filePath := path.Join("/repositories", ro.Owner, ro.RepoSlug, "src", ro.Ref, ro.Path) + "/"
+	urlPath := "/repositories/%s/%s/src/%s/%s"
 
-	urlStr := r.c.requestUrl(filePath)
-	url, err := url.Parse(urlStr)
+	urlStr := r.c.requestUrl(urlPath, ro.Owner, ro.RepoSlug, ro.Ref, ro.Path)
+	parsedUrl, err := url.Parse(urlStr)
 	if err != nil {
 		return "", err
 	}
 
-	query := url.Query()
+	query := parsedUrl.Query()
 	r.c.addMaxDepthParam(&query, &ro.MaxDepth)
-	url.RawQuery = query.Encode()
+	parsedUrl.RawQuery = query.Encode()
 
-	return url.String(), nil
+	return parsedUrl.String(), nil
 }
 
 func (r *Repository) GetFileContent(ro *RepositoryFilesOptions) ([]byte, error) {
@@ -354,8 +354,8 @@ func (r *Repository) ListFiles(ro *RepositoryFilesOptions) ([]RepositoryFile, er
 }
 
 func (r *Repository) GetFileBlob(ro *RepositoryBlobOptions) (*RepositoryBlob, error) {
-	filePath := path.Join("/repositories", ro.Owner, ro.RepoSlug, "src", ro.Ref, ro.Path)
-	urlStr := r.c.requestUrl(filePath)
+	urlPath := "/repositories/%s/%s/src/%s/%s"
+	urlStr := r.c.requestUrl(urlPath, ro.Owner, ro.RepoSlug, ro.Ref, ro.Path)
 	response, err := r.c.executeRaw("GET", urlStr, "")
 	if err != nil {
 		return nil, err
@@ -440,11 +440,17 @@ func (r *Repository) ListRefs(rbo *RepositoryRefOptions) (*RepositoryRefs, error
 	return decodeRepositoryRefs(bodyString)
 }
 
+// ListBranches gets all branches in the Bitbucket repository and returns them as a RepositoryBranches.
+// You can pass query parameter to filter branches by name.
+//
+// Bitbucket API docs: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-refs/#api-repositories-workspace-repo-slug-refs-get
 func (r *Repository) ListBranches(rbo *RepositoryBranchOptions) (*RepositoryBranches, error) {
-
 	params := url.Values{}
+
 	if rbo.Query != "" {
-		params.Add("q", rbo.Query)
+		// https://developer.atlassian.com/cloud/bitbucket/rest/intro/#operators
+		query := fmt.Sprintf("name ~ \"%s\"", rbo.Query)
+		params.Set("q", query)
 	}
 
 	if rbo.Sort != "" {
@@ -468,12 +474,12 @@ func (r *Repository) ListBranches(rbo *RepositoryBranchOptions) (*RepositoryBran
 	if err != nil {
 		return nil, err
 	}
-	bodyBytes, err := ioutil.ReadAll(response)
+	bodyBytes, err := io.ReadAll(response)
 	if err != nil {
 		return nil, err
 	}
-	bodyString := string(bodyBytes)
-	return decodeRepositoryBranches(bodyString)
+
+	return decodeRepositoryBranches(string(bodyBytes))
 }
 
 func (r *Repository) GetBranch(rbo *RepositoryBranchOptions) (*RepositoryBranch, error) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/apis/pipelinesascode"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/hub"
+	hubtypes "github.com/openshift-pipelines/pipelines-as-code/pkg/hub/vars"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/info"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
@@ -26,18 +27,19 @@ const (
 )
 
 type RemoteTasks struct {
-	Run               *params.Run
-	ProviderInterface provider.Interface
-	Event             *info.Event
-	Logger            *zap.SugaredLogger
+	Run                    *params.Run
+	ProviderInterface      provider.Interface
+	Event                  *info.Event
+	Logger                 *zap.SugaredLogger
+	DeprecatedHubResources []string // tracks resources resolved from deprecated tektonhub catalogs
 }
 
 // nolint: dupl
-func (rt RemoteTasks) convertToPipeline(ctx context.Context, uri, data string) (*tektonv1.Pipeline, error) {
+func (rt *RemoteTasks) convertToPipeline(ctx context.Context, uri, data string) (*tektonv1.Pipeline, error) {
 	decoder := k8scheme.Codecs.UniversalDeserializer()
 	obj, _, err := decoder.Decode([]byte(data), nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("remote pipeline from uri: %s cannot be parsed as a kubernetes resource: %w", uri, err)
+		return nil, fmt.Errorf("remote pipeline from URI %s cannot be parsed as a Kubernetes resource: %w", uri, err)
 	}
 
 	var pipeline *tektonv1.Pipeline
@@ -55,24 +57,24 @@ func (rt RemoteTasks) convertToPipeline(ctx context.Context, uri, data string) (
 		// return nil, fmt.Errorf("remote pipeline from uri: %s with name %s cannot be validated: %w", uri, o.GetName(), err)
 		// }
 		if err := o.ConvertTo(ctx, c); err != nil {
-			return nil, fmt.Errorf("remote pipeline from uri: %s with name %s cannot be converted to v1beta1: %w", uri, o.GetName(), err)
+			return nil, fmt.Errorf("remote pipeline from URI %s with name %s cannot be converted to v1beta1: %w", uri, o.GetName(), err)
 		}
 		pipeline = c
 	default:
-		return nil, fmt.Errorf("remote pipeline from uri: %s has not been recognized as a tekton pipeline: %v", uri, o)
+		return nil, fmt.Errorf("remote pipeline from URI %s has not been recognized as a Tekton pipeline: %v", uri, o)
 	}
 
 	return pipeline, nil
 }
 
 // nolint: dupl
-// golint has decided that it is a duplication with convertToPipeline but i swear it isn't does two are different function
-// and not even sure this is possible to do this with generic crazyness.
-func (rt RemoteTasks) convertTotask(ctx context.Context, uri, data string) (*tektonv1.Task, error) {
+// golint has decided that this is a duplication with convertToPipeline but I swear it isn't - these two are different functions
+// and not even sure this is possible to do with generic complexity.
+func (rt *RemoteTasks) convertTotask(ctx context.Context, uri, data string) (*tektonv1.Task, error) {
 	decoder := k8scheme.Codecs.UniversalDeserializer()
 	obj, _, err := decoder.Decode([]byte(data), nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("remote task from uri: %s cannot be parsed as a kubernetes resource: %w", uri, err)
+		return nil, fmt.Errorf("remote task from URI %s cannot be parsed as a Kubernetes resource: %w", uri, err)
 	}
 
 	var task *tektonv1.Task
@@ -87,32 +89,36 @@ func (rt RemoteTasks) convertTotask(ctx context.Context, uri, data string) (*tek
 		// return nil, fmt.Errorf("remote task from uri: %s with name %s cannot be validated: %w", uri, o.GetName(), err)
 		// }
 		if err := o.ConvertTo(ctx, c); err != nil {
-			return nil, fmt.Errorf("remote task from uri: %s with name %s cannot be converted to v1beta1: %w", uri, o.GetName(), err)
+			return nil, fmt.Errorf("remote task from URI %s with name %s cannot be converted to v1beta1: %w", uri, o.GetName(), err)
 		}
 		task = c
 	default:
-		return nil, fmt.Errorf("remote task from uri: %s has not been recognized as a tekton task: %v", uri, o)
+		return nil, fmt.Errorf("remote task from URI %s has not been recognized as a Tekton task: %v", uri, o)
 	}
 
 	return task, nil
 }
 
-func (rt RemoteTasks) getRemote(ctx context.Context, uri string, fromHub bool, kind string) (string, error) {
+func (rt *RemoteTasks) getRemote(ctx context.Context, uri string, fromHub bool, kind string) (string, error) {
+	rt.Logger.Debugf("getRemote: uri=%s kind=%s fromHub=%t", uri, kind, fromHub)
 	if fetchedFromURIFromProvider, task, err := rt.ProviderInterface.GetTaskURI(ctx, rt.Event, uri); fetchedFromURIFromProvider {
+		rt.Logger.Debugf("getRemote: fetched %s via provider hook for uri=%s", kind, uri)
 		return task, err
 	}
 
 	switch {
 	case strings.HasPrefix(uri, "https://"), strings.HasPrefix(uri, "http://"): // if it starts with http(s)://, it is a remote resource
+		rt.Logger.Debugf("getRemote: fetching %s from http(s) url", kind)
 		data, err := rt.Run.Clients.GetURL(ctx, uri)
 		if err != nil {
 			return "", err
 		}
-		rt.Logger.Infof("successfully fetched %s from remote https url", uri)
+		rt.Logger.Infof("successfully fetched %s from remote HTTPS URL", uri)
 		return string(data), nil
 	case fromHub && strings.Contains(uri, "://"): // if it contains ://, it is a remote custom catalog
 		split := strings.Split(uri, "://")
 		catalogID := split[0]
+		rt.Logger.Debugf("getRemote: fetching %s from custom hub catalog=%s", kind, catalogID)
 		value, _ := rt.Run.Info.Pac.HubCatalogs.Load(catalogID)
 		if _, ok := rt.Run.Info.Pac.HubCatalogs.Load(catalogID); !ok {
 			rt.Logger.Infof("custom catalog %s is not found, skipping", catalogID)
@@ -127,9 +133,14 @@ func (rt RemoteTasks) getRemote(ctx context.Context, uri string, fromHub bool, k
 		if !ok {
 			return "", fmt.Errorf("could not get details for catalog name: %s", catalogID)
 		}
-		rt.Logger.Infof("successfully fetched %s %s from custom catalog HUB %s on URL %s", kind, uri, catalogID, catalogValue.URL)
+		rt.Logger.Infof("successfully fetched %s %s from custom catalog Hub %s on URL %s", kind, uri, catalogID, catalogValue.URL)
+		if catalogValue.Type == hubtypes.TektonHubType {
+			rt.Logger.Warnf("Tekton Hub integration is deprecated and will be removed in a future release. Resource %s %s was fetched from Tekton Hub catalog %s. Please migrate to Artifact Hub or fetch tasks from a git repository. See https://pipelinesascode.com/docs/guides/pipeline-resolution/", kind, uri, catalogID)
+			rt.DeprecatedHubResources = append(rt.DeprecatedHubResources, fmt.Sprintf("%s %s (catalog: %s)", kind, uri, catalogID))
+		}
 		return data, nil
 	case strings.Contains(uri, "/"): // if it contains a slash, it is a file inside a repository
+		rt.Logger.Debugf("getRemote: fetching %s from repository path", kind)
 		var data string
 		var err error
 		if rt.Event.SHA != "" {
@@ -150,6 +161,7 @@ func (rt RemoteTasks) getRemote(ctx context.Context, uri string, fromHub bool, k
 		rt.Logger.Infof("successfully fetched %s inside repository", uri)
 		return data, nil
 	case fromHub: // finally a simple word will fetch from the default catalog (if enabled)
+		rt.Logger.Debugf("getRemote: fetching %s from default hub catalog", kind)
 		data, err := hub.GetResource(ctx, rt.Run, "default", uri, kind)
 		if err != nil {
 			return "", err
@@ -159,7 +171,11 @@ func (rt RemoteTasks) getRemote(ctx context.Context, uri string, fromHub bool, k
 		if !ok {
 			return "", fmt.Errorf("could not get details for catalog name: %s", "default")
 		}
-		rt.Logger.Infof("successfully fetched %s %s from default configured catalog HUB on URL: %s", uri, kind, catalogValue.URL)
+		rt.Logger.Infof("successfully fetched %s %s from default configured catalog Hub on URL %s", uri, kind, catalogValue.URL)
+		if catalogValue.Type == hubtypes.TektonHubType {
+			rt.Logger.Warnf("Tekton Hub integration is deprecated and will be removed in a future release. Resource %s %s was fetched from the default Tekton Hub catalog. Please migrate to Artifact Hub or fetch tasks from a git repository. See https://pipelinesascode.com/docs/guides/pipeline-resolution/", kind, uri)
+			rt.DeprecatedHubResources = append(rt.DeprecatedHubResources, fmt.Sprintf("%s %s (default catalog)", kind, uri))
+		}
 		return data, nil
 	}
 	return "", fmt.Errorf(`cannot find "%s" anywhere`, uri)
@@ -199,13 +215,14 @@ func GrabPipelineFromAnnotations(annotations map[string]string) (string, error) 
 	return pipelinesAnnotation[0], nil
 }
 
-func (rt RemoteTasks) GetTaskFromAnnotationName(ctx context.Context, name string) (*tektonv1.Task, error) {
+func (rt *RemoteTasks) GetTaskFromAnnotationName(ctx context.Context, name string) (*tektonv1.Task, error) {
+	rt.Logger.Debugf("GetTaskFromAnnotationName: name=%s", name)
 	data, err := rt.getRemote(ctx, name, true, "task")
 	if err != nil {
 		return nil, fmt.Errorf("error getting remote task \"%s\": %w", name, err)
 	}
 	if data == "" {
-		return nil, fmt.Errorf("could not get remote task \"%s\": returning empty", name)
+		return nil, fmt.Errorf("remote task \"%s\" not found", name)
 	}
 
 	task, err := rt.convertTotask(ctx, name, data)
@@ -215,13 +232,14 @@ func (rt RemoteTasks) GetTaskFromAnnotationName(ctx context.Context, name string
 	return task, nil
 }
 
-func (rt RemoteTasks) GetPipelineFromAnnotationName(ctx context.Context, name string) (*tektonv1.Pipeline, error) {
+func (rt *RemoteTasks) GetPipelineFromAnnotationName(ctx context.Context, name string) (*tektonv1.Pipeline, error) {
+	rt.Logger.Debugf("GetPipelineFromAnnotationName: name=%s", name)
 	data, err := rt.getRemote(ctx, name, true, "pipeline")
 	if err != nil {
 		return nil, fmt.Errorf("error getting remote pipeline \"%s\": %w", name, err)
 	}
 	if data == "" {
-		return nil, fmt.Errorf("could not get remote pipeline \"%s\": returning empty", name)
+		return nil, fmt.Errorf("remote pipeline \"%s\" not found", name)
 	}
 
 	pipeline, err := rt.convertToPipeline(ctx, name, data)

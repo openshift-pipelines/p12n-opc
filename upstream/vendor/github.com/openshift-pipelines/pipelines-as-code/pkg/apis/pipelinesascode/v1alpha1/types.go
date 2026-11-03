@@ -19,7 +19,7 @@ import (
 // +kubebuilder:printcolumn:name="CompletionTime",type=date,JSONPath=`.pipelinerun_status[-1].completionTime`
 type Repository struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec   RepositorySpec        `json:"spec"`
 	Status []RepositoryRunStatus `json:"pipelinerun_status,omitempty"`
@@ -118,8 +118,20 @@ func (r *RepositorySpec) Merge(newRepo RepositorySpec) {
 	if newRepo.ConcurrencyLimit != nil && r.ConcurrencyLimit == nil {
 		r.ConcurrencyLimit = newRepo.ConcurrencyLimit
 	}
-	if newRepo.Settings != nil && r.Settings != nil {
-		r.Settings.Merge(newRepo.Settings)
+	if newRepo.Settings != nil {
+		if r.Settings == nil {
+			// copy instead of aliasing the pointer, the source may be a shared
+			// object (e.g. the global Repository from an informer cache) and
+			// later merges must not mutate it.
+			settings := *newRepo.Settings
+			if settings.Gitlab != nil {
+				gitlabSettings := *settings.Gitlab
+				settings.Gitlab = &gitlabSettings
+			}
+			r.Settings = &settings
+		} else {
+			r.Settings.Merge(newRepo.Settings)
+		}
 	}
 	if r.GitProvider != nil && newRepo.GitProvider != nil {
 		r.GitProvider.Merge(newRepo.GitProvider)
@@ -150,6 +162,11 @@ type Settings struct {
 	// +kubebuilder:validation:Enum=source;default_branch
 	PipelineRunProvenance string `json:"pipelinerun_provenance,omitempty"`
 
+	// GitOpsCommandPrefix configures the prefix for the GitOps command.
+	// This is used to identify the GitOps command in the PipelineRun.
+	// +optional
+	GitOpsCommandPrefix string `json:"gitops_command_prefix,omitempty"`
+
 	// Policy defines authorization policies for the repository, controlling who can
 	// trigger PipelineRuns under different conditions.
 	// +optional
@@ -160,23 +177,58 @@ type Settings struct {
 	Gitlab *GitlabSettings `json:"gitlab,omitempty"`
 
 	Github *GithubSettings `json:"github,omitempty"`
+
+	// Forgejo contains Forgejo/Gitea-specific settings.
+	// +optional
+	Forgejo *ForgejoSettings `json:"forgejo,omitempty"`
+
+	// AIAnalysis contains AI/LLM analysis configuration for automated CI/CD pipeline analysis.
+	// +optional
+	AIAnalysis *AIAnalysisConfig `json:"ai,omitempty"`
 }
 
 type GitlabSettings struct {
 	// CommentStrategy defines how GitLab comments are handled for pipeline results.
 	// Options:
 	// - 'disable_all': Disables all comments on merge requests
+	// - 'update': Updates a single comment per PipelineRun on every trigger.
 	// +optional
-	// +kubebuilder:validation:Enum="";disable_all
+	// +kubebuilder:validation:Enum="";disable_all;update
 	CommentStrategy string `json:"comment_strategy,omitempty"`
+
+	// TokenAutoRotation controls automatic rotation of expiring GitLab access tokens.
+	// This is disabled by default. When enabled, PAC checks the token's expiry on each webhook event and
+	// rotates it when within 7 days of expiration. The new token is written back to the
+	// Kubernetes Secret. Requires the token to have the 'api' scope.
+	// Set to true to enable.
+	// +optional
+	TokenAutoRotation *bool `json:"token_auto_rotation,omitempty"`
 }
 
 type GithubSettings struct {
-	// CommentStrategy defines how GitLab comments are handled for pipeline results.
+	// CommentStrategy defines how GitHub comments are handled for pipeline results.
 	// Options:
 	// - 'disable_all': Disables all comments on merge requests
+	// - 'update': Updates a single comment per PipelineRun on every trigger.
 	// +optional
-	// +kubebuilder:validation:Enum="";disable_all
+	// +kubebuilder:validation:Enum="";disable_all;update
+	CommentStrategy string `json:"comment_strategy,omitempty"`
+}
+
+type ForgejoSettings struct {
+	// UserAgent sets the User-Agent header on API requests to the Gitea/Forgejo instance.
+	// This is useful when the instance is behind an AI scraping protection proxy (e.g. Anubis)
+	// that blocks requests without a recognized User-Agent.
+	// Defaults to "pipelines-as-code/<version>" when left empty.
+	// +optional
+	UserAgent string `json:"user_agent,omitempty"`
+
+	// CommentStrategy defines how Forgejo/Gitea comments are handled for pipeline results.
+	// Options:
+	// - 'disable_all': Disables all comments on pull requests
+	// - 'update': Updates a single comment per PipelineRun on every trigger.
+	// +optional
+	// +kubebuilder:validation:Enum="";disable_all;update
 	CommentStrategy string `json:"comment_strategy,omitempty"`
 }
 
@@ -189,6 +241,34 @@ func (s *Settings) Merge(newSettings *Settings) {
 	}
 	if newSettings.GithubAppTokenScopeRepos != nil && s.GithubAppTokenScopeRepos == nil {
 		s.GithubAppTokenScopeRepos = newSettings.GithubAppTokenScopeRepos
+	}
+	if newSettings.Forgejo != nil && s.Forgejo == nil {
+		s.Forgejo = newSettings.Forgejo
+	}
+	if newSettings.Gitlab != nil {
+		if s.Gitlab == nil {
+			// copy instead of aliasing, later merges must not mutate the source.
+			gitlabSettings := *newSettings.Gitlab
+			s.Gitlab = &gitlabSettings
+		} else {
+			s.Gitlab.Merge(newSettings.Gitlab)
+		}
+	}
+	if newSettings.AIAnalysis != nil && s.AIAnalysis == nil {
+		s.AIAnalysis = newSettings.AIAnalysis
+	}
+
+	if newSettings.GitOpsCommandPrefix != "" && s.GitOpsCommandPrefix == "" {
+		s.GitOpsCommandPrefix = newSettings.GitOpsCommandPrefix
+	}
+}
+
+func (s *GitlabSettings) Merge(newSettings *GitlabSettings) {
+	if newSettings.CommentStrategy != "" && s.CommentStrategy == "" {
+		s.CommentStrategy = newSettings.CommentStrategy
+	}
+	if newSettings.TokenAutoRotation != nil && s.TokenAutoRotation == nil {
+		s.TokenAutoRotation = newSettings.TokenAutoRotation
 	}
 }
 
@@ -279,15 +359,25 @@ type GitProvider struct {
 	// - 'gitlab': GitLab.com or self-hosted GitLab
 	// - 'bitbucket-datacenter': Bitbucket Data Center (self-hosted)
 	// - 'bitbucket-cloud': Bitbucket Cloud (bitbucket.org)
-	// - 'gitea': Gitea instances
+	// - 'forgejo': Forgejo instances
+	// - 'gitea': Gitea instances (alias for forgejo, kept for backwards compatibility)
 	// +optional
-	// +kubebuilder:validation:Enum=github;gitlab;bitbucket-datacenter;bitbucket-cloud;gitea
+	// +kubebuilder:validation:Enum=github;gitlab;bitbucket-datacenter;bitbucket-cloud;gitea;forgejo
 	Type string `json:"type,omitempty"`
 }
 
+// areEquivalentProviderTypes checks if gitea/forgejo aliases refer to the same provider.
+func areEquivalentProviderTypes(a, b string) bool {
+	if a == b {
+		return true
+	}
+	giteaTypes := map[string]bool{"gitea": true, "forgejo": true}
+	return giteaTypes[a] && giteaTypes[b]
+}
+
 func (g *GitProvider) Merge(newGitProvider *GitProvider) {
-	// only merge of the same type
-	if newGitProvider.Type != "" && g.Type != "" && g.Type != newGitProvider.Type {
+	// only merge of the same type (gitea and forgejo are equivalent)
+	if newGitProvider.Type != "" && g.Type != "" && !areEquivalentProviderTypes(g.Type, newGitProvider.Type) {
 		return
 	}
 	if newGitProvider.URL != "" && g.URL == "" {
@@ -323,7 +413,7 @@ type Secret struct {
 // +kubebuilder:object:root=true
 type RepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Repository `json:"items"`
 }
