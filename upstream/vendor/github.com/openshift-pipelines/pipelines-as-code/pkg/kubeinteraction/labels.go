@@ -1,6 +1,8 @@
 package kubeinteraction
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -10,8 +12,11 @@ import (
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/formatting"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/info"
-	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/version"
+	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/versiondata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -21,18 +26,21 @@ const (
 	StateFailed    = "failed"
 )
 
-func AddLabelsAndAnnotations(event *info.Event, pipelineRun *tektonv1.PipelineRun, repo *apipac.Repository, providerConfig *info.ProviderConfig, paramsRun *params.Run) error {
+func AddLabelsAndAnnotations(ctx context.Context, event *info.Event, pipelineRun *tektonv1.PipelineRun, repo *apipac.Repository, providerConfig *info.ProviderConfig, paramsRun *params.Run) error {
 	if event == nil {
 		return fmt.Errorf("event should not be nil")
 	}
 	paramsinfo := paramsRun.Info
+
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	// Add labels on the soon-to-be created pipelinerun so UI/CLI can easily
 	// query them.
 	labels := map[string]string{
 		// These keys are used in LabelSelector query, so we are keeping in Labels as it is.
 		// But adding same keys to Annotations so UI/CLI can fetch the actual value instead of modified value
 		"app.kubernetes.io/managed-by": pipelinesascode.GroupName,
-		"app.kubernetes.io/version":    formatting.CleanValueKubernetes(version.Version),
+		"app.kubernetes.io/version":    formatting.CleanValueKubernetes(versiondata.Version),
 		keys.URLOrg:                    formatting.CleanValueKubernetes(event.Organization),
 		keys.URLRepository:             formatting.CleanValueKubernetes(event.Repository),
 		keys.SHA:                       formatting.CleanValueKubernetes(event.SHA),
@@ -55,8 +63,20 @@ func AddLabelsAndAnnotations(event *info.Event, pipelineRun *tektonv1.PipelineRu
 		keys.SourceBranch:  event.HeadBranch,
 		keys.Repository:    repo.GetName(),
 		keys.GitProvider:   providerConfig.Name,
+		keys.SecretCreated: "false",
 		keys.ControllerInfo: fmt.Sprintf(`{"name":"%s","configmap":"%s","secret":"%s", "gRepo": "%s"}`,
 			paramsinfo.Controller.Name, paramsinfo.Controller.Configmap, paramsinfo.Controller.Secret, paramsinfo.Controller.GlobalRepository),
+	}
+
+	if len(carrier) > 0 {
+		if jsonBytes, err := json.Marshal(carrier); err != nil {
+			logging.FromContext(ctx).Errorf("failed to marshal span context carrier: %v", err)
+		} else {
+			if existing := pipelineRun.GetAnnotations()[keys.SpanContextAnnotation]; existing != "" {
+				logging.FromContext(ctx).Warnf("overwriting pre-existing %s annotation on PipelineRun template; honoring initiating event trace context", keys.SpanContextAnnotation)
+			}
+			annotations[keys.SpanContextAnnotation] = string(jsonBytes)
+		}
 	}
 
 	if event.PullRequestNumber != 0 {
@@ -66,7 +86,7 @@ func AddLabelsAndAnnotations(event *info.Event, pipelineRun *tektonv1.PipelineRu
 
 	// TODO: move to provider specific function
 	if providerConfig.Name == "github" || providerConfig.Name == "github-enterprise" {
-		if event.InstallationID != -1 {
+		if event.InstallationID > 0 {
 			annotations[keys.InstallationID] = strconv.FormatInt(event.InstallationID, 10)
 		}
 		if event.GHEURL != "" {
@@ -76,10 +96,14 @@ func AddLabelsAndAnnotations(event *info.Event, pipelineRun *tektonv1.PipelineRu
 
 	// GitLab
 	if event.SourceProjectID != 0 {
-		annotations[keys.SourceProjectID] = strconv.Itoa(event.SourceProjectID)
+		annotations[keys.SourceProjectID] = strconv.Itoa(int(event.SourceProjectID))
 	}
 	if event.TargetProjectID != 0 {
-		annotations[keys.TargetProjectID] = strconv.Itoa(event.TargetProjectID)
+		annotations[keys.TargetProjectID] = strconv.Itoa(int(event.TargetProjectID))
+	}
+
+	if event.CloneURL != "" {
+		annotations[keys.CloneURL] = event.CloneURL
 	}
 
 	if value, ok := pipelineRun.GetObjectMeta().GetAnnotations()[keys.CancelInProgress]; ok {
