@@ -71,12 +71,12 @@ const indexTmpl = `
 `
 
 var successTmpl = fmt.Sprintf(`
-<html><body>You have <span style=\"color: green\">successfully</span> created a new GitHub application, go back to the %s pac cli to finish the installation.</body></html>
+<html><body>You have <span style=\"color: green\">successfully</span> created a new GitHub application. Return to the %s pac CLI to finish the installation.</body></html>
 `, settings.TknBinaryName)
 
 func install(ctx context.Context, run *params.Run, opts *bootstrapOpts) error {
 	if !opts.forceInstall {
-		fmt.Fprintln(opts.ioStreams.Out, "=> Checking if Pipelines as Code is installed.")
+		fmt.Fprintln(opts.ioStreams.Out, "=> Checking if Pipelines-as-Code is installed.")
 	}
 	tektonInstalled, err := checkPipelinesInstalled(run)
 	if err != nil {
@@ -111,7 +111,7 @@ func install(ctx context.Context, run *params.Run, opts *bootstrapOpts) error {
 func createSecret(ctx context.Context, run *params.Run, opts *bootstrapOpts) error {
 	var err error
 
-	if opts.RouteName == "" {
+	if opts.RouteName == "" && !opts.forceInstallGosmee {
 		opts.RouteName, _ = DetectOpenShiftRoute(ctx, run, opts.targetNamespace)
 		if opts.RouteName != "" {
 			opts.autoDetectedRoute = true
@@ -207,7 +207,7 @@ func GithubApp(run *params.Run, ioStreams *cli.IOStreams) *cobra.Command {
 				return err
 			}
 			// installed but there is error for missing resources
-			if installed && !opts.forceInstall {
+			if installed && !opts.forceInstall && !opts.skipInstall {
 				return fmt.Errorf("pipelines as Code is already installed, please pass --force-install to override existing")
 			}
 
@@ -271,7 +271,7 @@ func DetectPacInstallation(ctx context.Context, wantedNS string, run *params.Run
 	if err == nil {
 		return installed, cm.Namespace, nil
 	}
-	return installed, "", fmt.Errorf("could not detect Pipelines as Code configmap on the cluster, please specify the namespace in which pac is installed: %s", err.Error())
+	return installed, "", fmt.Errorf("could not detect Pipelines as Code configmap on the cluster, please specify the namespace in which pac is installed: %w", err)
 }
 
 func getConfigMap(ctx context.Context, run *params.Run) (*corev1.ConfigMap, error) {

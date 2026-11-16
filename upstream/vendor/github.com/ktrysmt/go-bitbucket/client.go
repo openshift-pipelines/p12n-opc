@@ -2,11 +2,12 @@ package bitbucket
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -25,13 +26,36 @@ const DEFAULT_LIMIT_PAGES = 0
 const DEFAULT_MAX_DEPTH = 1
 const DEFAULT_BITBUCKET_API_BASE_URL = "https://api.bitbucket.org/2.0"
 
-func apiBaseUrl() (*url.URL, error) {
+func apiBaseUrlEnv() (*url.URL, error) {
 	ev := os.Getenv("BITBUCKET_API_BASE_URL")
 	if ev == "" {
 		ev = DEFAULT_BITBUCKET_API_BASE_URL
 	}
 
 	return url.Parse(ev)
+}
+
+func appendCaCerts(caCerts []byte) (*http.Client, error) {
+	// 1. If the system standard cert pool exists, create a copy that can be modified.
+	caCertPool, err := x509.SystemCertPool()
+	// The system cert pool does not exist, so we are going to create a new one.
+	if err != nil {
+		// The system standard cert pool does not exist so create a new empty one.
+		caCertPool = x509.NewCertPool()
+	}
+	// 2. Append the custom CA certs to the pool.
+	if success := caCertPool.AppendCertsFromPEM(caCerts); !success {
+		return nil, fmt.Errorf("unable to append CA Certs to cert pool: %w", err)
+	}
+	// 3. Create a new http.Transport copying http.DefaultTransport
+	newTransport := http.DefaultTransport.(*http.Transport).Clone()
+	// 4. Append the custom CA certs to the new transport.
+	newTransport.TLSClientConfig = &tls.Config{
+		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS12,
+	}
+	// 5. Create a new http client
+	return &http.Client{Transport: newTransport}, nil
 }
 
 type Client struct {
@@ -59,19 +83,22 @@ type auth struct {
 	user, password string
 	token          oauth2.Token
 	bearerToken    string
+	caCerts        []byte
+	apiBaseUrl     *url.URL
 }
 
 type Response struct {
-	Size     int           `json:"size"`
-	Page     int           `json:"page"`
-	Pagelen  int           `json:"pagelen"`
-	Next     string        `json:"next"`
-	Previous string        `json:"previous"`
-	Values   []interface{} `json:"values"`
+	*http.Response `json:"-"`
+	Size           int           `json:"size"`
+	Page           int           `json:"page"`
+	Pagelen        int           `json:"pagelen"`
+	Next           string        `json:"next"`
+	Previous       string        `json:"previous"`
+	Values         []interface{} `json:"values"`
 }
 
 // Uses the Client Credentials Grant oauth2 flow to authenticate to Bitbucket
-func NewOAuthClientCredentials(i, s string) *Client {
+func NewOAuthClientCredentials(i, s string) (*Client, error) {
 	a := &auth{appID: i, secret: s}
 	ctx := context.Background()
 	conf := &clientcredentials.Config{
@@ -82,14 +109,20 @@ func NewOAuthClientCredentials(i, s string) *Client {
 
 	tok, err := conf.Token(ctx)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to obtain token: %w", err)
 	}
 	a.token = *tok
 	return injectClient(a)
 
 }
 
-func NewOAuth(i, s string) *Client {
+// NewOAuth performs an interactive OAuth flow using stdin/stdout.
+//
+// Deprecated: This function uses stdin/stdout directly, making it unsuitable for
+// non-interactive environments (e.g., web servers, background jobs). Instead, use
+// NewOAuthWithCode after obtaining the authorization code through your own UI/CLI.
+// You can generate the authorization URL using oauth2.Config.AuthCodeURL() directly.
+func NewOAuth(i, s string) (*Client, error) {
 	a := &auth{appID: i, secret: s}
 	ctx := context.Background()
 	conf := &oauth2.Config{
@@ -110,11 +143,11 @@ func NewOAuth(i, s string) *Client {
 	var code string
 	fmt.Printf("Enter the code in the return URL: ")
 	if _, err := fmt.Scan(&code); err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to read authorization code: %w", err)
 	}
 	tok, err := conf.Exchange(ctx, code)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to exchange authorization code: %w", err)
 	}
 	a.token = *tok
 	return injectClient(a)
@@ -122,7 +155,7 @@ func NewOAuth(i, s string) *Client {
 
 // NewOAuthWithCode finishes the OAuth handshake with a given code
 // and returns a *Client
-func NewOAuthWithCode(i, s, c string) (*Client, string) {
+func NewOAuthWithCode(i, s, c string) (*Client, string, error) {
 	a := &auth{appID: i, secret: s}
 	ctx := context.Background()
 	conf := &oauth2.Config{
@@ -133,15 +166,19 @@ func NewOAuthWithCode(i, s, c string) (*Client, string) {
 
 	tok, err := conf.Exchange(ctx, c)
 	if err != nil {
-		log.Fatal(err)
+		return nil, "", fmt.Errorf("failed to exchange authorization code: %w", err)
 	}
 	a.token = *tok
-	return injectClient(a), tok.AccessToken
+	client, err := injectClient(a)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create client: %w", err)
+	}
+	return client, tok.AccessToken, nil
 }
 
 // NewOAuthWithRefreshToken obtains a new access token with a given refresh token
 // and returns a *Client
-func NewOAuthWithRefreshToken(i, s, rt string) (*Client, string) {
+func NewOAuthWithRefreshToken(i, s, rt string) (*Client, string, error) {
 	a := &auth{appID: i, secret: s}
 	ctx := context.Background()
 	conf := &oauth2.Config{
@@ -155,29 +192,93 @@ func NewOAuthWithRefreshToken(i, s, rt string) (*Client, string) {
 	})
 	tok, err := tokenSource.Token()
 	if err != nil {
-		log.Fatal(err)
+		return nil, "", fmt.Errorf("failed to refresh token: %w", err)
 	}
 	a.token = *tok
-	return injectClient(a), tok.AccessToken
+	client, err := injectClient(a)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create client: %w", err)
+	}
+	return client, tok.AccessToken, nil
 }
 
-func NewOAuthbearerToken(t string) *Client {
+func NewOAuthbearerToken(t string) (*Client, error) {
 	a := &auth{bearerToken: t}
 	return injectClient(a)
 }
 
-func NewBasicAuth(u, p string) *Client {
+func NewOAuthbearerTokenWithBaseUrlStr(t, u string) (*Client, error) {
+	apiBaseURL, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+	a := &auth{bearerToken: t, apiBaseUrl: apiBaseURL}
+	return injectClient(a)
+}
+
+func NewOAuthbearerTokenWithCaCert(t string, c []byte) (*Client, error) {
+	a := &auth{bearerToken: t, caCerts: c}
+	return injectClient(a)
+}
+
+func NewOAuthbearerTokenWithBaseUrlStrCaCert(t, u string, c []byte) (*Client, error) {
+	apiBaseURL, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+	a := &auth{bearerToken: t, caCerts: c, apiBaseUrl: apiBaseURL}
+	return injectClient(a)
+}
+
+func NewBasicAuth(u, p string) (*Client, error) {
 	a := &auth{user: u, password: p}
 	return injectClient(a)
 }
 
-func injectClient(a *auth) *Client {
-	bitbucketUrl, err := apiBaseUrl()
+func NewBasicAuthWithBaseUrlStr(u, p, urlStr string) (*Client, error) {
+	apiBaseURL, err := url.Parse(urlStr)
 	if err != nil {
-		log.Fatalf("invalid bitbucket url")
+		return nil, err
 	}
+	a := &auth{user: u, password: p, apiBaseUrl: apiBaseURL}
+	return injectClient(a)
+}
+
+func NewBasicAuthWithCaCert(u, p string, c []byte) (*Client, error) {
+	a := &auth{user: u, password: p, caCerts: c}
+	return injectClient(a)
+}
+
+func NewBasicAuthWithBaseUrlStrCaCert(u, p, urlStr string, c []byte) (*Client, error) {
+	apiBaseURL, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	a := &auth{user: u, password: p, apiBaseUrl: apiBaseURL, caCerts: c}
+	return injectClient(a)
+}
+
+func injectClient(a *auth) (*Client, error) {
 	c := &Client{Auth: a, Pagelen: DEFAULT_PAGE_LENGTH, MaxDepth: DEFAULT_MAX_DEPTH,
-		apiBaseURL: bitbucketUrl, LimitPages: DEFAULT_LIMIT_PAGES}
+		LimitPages: DEFAULT_LIMIT_PAGES}
+	if a.apiBaseUrl != nil {
+		c.apiBaseURL = a.apiBaseUrl
+	} else {
+		bitbucketUrl, err := apiBaseUrlEnv()
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse Bitbucket base Url from environment: %w", err)
+		}
+		c.apiBaseURL = bitbucketUrl
+	}
+	if a.caCerts != nil {
+		httpClient, err := appendCaCerts(a.caCerts)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create http client with passed in CA certificates: %w", err)
+		}
+		c.HttpClient = httpClient
+	} else {
+		c.HttpClient = new(http.Client)
+	}
 	c.Repositories = &Repositories{
 		c:                  c,
 		PullRequests:       &PullRequests{c: c},
@@ -192,14 +293,13 @@ func injectClient(a *auth) *Client {
 		DeployKeys:         &DeployKeys{c: c},
 	}
 	c.Users = &Users{
-		c: c,
-		SSHKeys:  &SSHKeys{c: c},
+		c:       c,
+		SSHKeys: &SSHKeys{c: c},
 	}
 	c.User = &User{c: c}
 	c.Teams = &Teams{c: c}
 	c.Workspaces = &Workspace{c: c, Repositories: c.Repositories, Permissions: &Permission{c: c}}
-	c.HttpClient = new(http.Client)
-	return c
+	return c, nil
 }
 
 func (c *Client) GetOAuthToken() oauth2.Token {

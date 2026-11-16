@@ -11,7 +11,7 @@ import (
 	opccli "github.com/openshift-pipelines/opc/pkg"
 	paccli "github.com/openshift-pipelines/pipelines-as-code/pkg/cli"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac"
-	pacversion "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/version"
+	pacversion "github.com/openshift-pipelines/pipelines-as-code/pkg/cmd/tknpac/versioncmd"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params"
 	assistcli "github.com/openshift-pipelines/tekton-assist/pkg/cli"
 	"github.com/spf13/cobra"
@@ -104,6 +104,7 @@ func main() {
 		}
 
 		// if we have found the plugin then sysexec it by replacing current process.
+		// #nosec G702 -- exCmd is validated by plugins.FindPlugin before use
 		if err := syscall.Exec(exCmd, append([]string{exCmd}, os.Args[2:]...), os.Environ()); err != nil {
 			fmt.Fprintf(os.Stderr, "Command finished with error: %v", err)
 			os.Exit(127)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:revive // package name matches stdlib by design
 package version
 
 import (
@@ -23,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tektoncd/cli/pkg/cli"
@@ -216,6 +217,7 @@ func (cli *Client) getRelease(url string) (ghversion GHVersion, err error) {
 		return ghversion, errors.Wrap(err, "failed to fetch the latest version")
 	}
 
+	// #nosec G704 -- URL is from our release API, not user-controlled
 	res, err := cli.httpClient.Do(req)
 	defer func() {
 		err := res.Body.Close()
@@ -260,7 +262,7 @@ func checkRelease(client *Client) (string, error) {
 		return "", err
 	}
 
-	if current.LT(*latest) {
+	if current.LessThan(latest) {
 		return fmt.Sprintf("A newer version (v%s) of Tekton CLI is available, please check %s\n", latest, response.HTMLURL), nil
 	}
 
@@ -269,10 +271,9 @@ func checkRelease(client *Client) (string, error) {
 
 func parseVersion(version string) (*semver.Version, error) {
 	version = strings.TrimSpace(version)
-	// Strip the leading 'v' in the version strings
-	v, err := semver.Parse(strings.TrimLeft(version, "v"))
+	v, err := semver.NewVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse version")
 	}
-	return &v, nil
+	return v, nil
 }

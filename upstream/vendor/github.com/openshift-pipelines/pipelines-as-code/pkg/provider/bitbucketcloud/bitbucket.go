@@ -16,7 +16,8 @@ import (
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/triggertype"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/provider"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/provider/bitbucketcloud/types"
-	providerMetrics "github.com/openshift-pipelines/pipelines-as-code/pkg/provider/metrics"
+	providerMetrics "github.com/openshift-pipelines/pipelines-as-code/pkg/provider/providermetrics"
+	"github.com/openshift-pipelines/pipelines-as-code/pkg/provider/status"
 	"go.uber.org/zap"
 )
 
@@ -82,36 +83,42 @@ func (v *Provider) GetConfig() *info.ProviderConfig {
 	}
 }
 
-func (v *Provider) CreateStatus(_ context.Context, event *info.Event, statusopts provider.StatusOpts) error {
+func (v *Provider) CreateStatus(_ context.Context, event *info.Event, statusopts status.StatusOpts) error {
+	var state types.CommitStatusState
+
 	switch statusopts.Conclusion {
-	case "skipped":
-		statusopts.Conclusion = "STOPPED"
+	case status.ConclusionSkipped:
+		state = types.StateStopped
 		statusopts.Title = "➖ Skipping this commit"
-	case "neutral":
-		statusopts.Conclusion = "STOPPED"
+	case status.ConclusionNeutral:
+		state = types.StateStopped
 		statusopts.Title = "➖ CI has stopped"
-	case "failure":
-		statusopts.Conclusion = "FAILED"
+	case status.ConclusionFailure:
+		state = types.StateFailed
 		statusopts.Title = "❌ Failed"
-	case "pending":
-		statusopts.Conclusion = "INPROGRESS"
+	case status.ConclusionPending:
+		state = types.StateInProgress
 		statusopts.Title = "⚡ CI has started"
-	case "success":
-		statusopts.Conclusion = "SUCCESSFUL"
+	case status.ConclusionSuccess:
+		state = types.StateSuccessful
 		statusopts.Title = "✅ Commit has been validated"
-	case "completed":
-		statusopts.Conclusion = "SUCCESSFUL"
+	case status.ConclusionCompleted:
+		state = types.StateSuccessful
 		statusopts.Title = "✅ Completed"
+	case status.ConclusionCancelled:
+		// TODO
 	}
 	detailsURL := event.Provider.URL
 	if statusopts.DetailsURL != "" {
 		detailsURL = statusopts.DetailsURL
 	}
 
+	key := provider.GetBBCloudStatusKey(statusopts, v.pacInfo)
+
 	cso := &bitbucket.CommitStatusOptions{
-		Key:         v.pacInfo.ApplicationName,
+		Key:         key,
 		Url:         detailsURL,
-		State:       statusopts.Conclusion,
+		State:       string(state),
 		Description: statusopts.Title,
 	}
 	cmo := &bitbucket.CommitsOptions{
@@ -133,7 +140,7 @@ func (v *Provider) CreateStatus(_ context.Context, event *info.Event, statusopts
 	}
 
 	eventType := triggertype.IsPullRequestType(event.EventType)
-	if statusopts.Conclusion != "STOPPED" && statusopts.Status == "completed" &&
+	if state != types.StateStopped && statusopts.Status == "completed" &&
 		statusopts.Text != "" &&
 		(eventType == triggertype.PullRequest || event.TriggerTarget == triggertype.PullRequest) {
 		onPr := ""
@@ -146,12 +153,17 @@ func (v *Provider) CreateStatus(_ context.Context, event *info.Event, statusopts
 				RepoSlug:      event.Repository,
 				PullRequestID: strconv.Itoa(event.PullRequestNumber),
 				Content:       fmt.Sprintf("**%s%s** - %s\n\n%s", v.pacInfo.ApplicationName, onPr, statusopts.Title, statusopts.Text),
-			})
+			},
+		)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (v *Provider) GetCommitStatuses(_ context.Context, _ *info.Event) ([]provider.CommitStatusInfo, error) {
+	return nil, nil
 }
 
 func (v *Provider) GetTektonDir(_ context.Context, event *info.Event, path, provenance string) (string, error) {
@@ -202,7 +214,11 @@ func (v *Provider) SetClient(_ context.Context, run *params.Run, event *info.Eve
 	if event.Provider.User == "" {
 		return fmt.Errorf("no git_provider.user has been in repo crd")
 	}
-	v.bbClient = bitbucket.NewBasicAuth(event.Provider.User, event.Provider.Token)
+	bbClient, err := bitbucket.NewBasicAuth(event.Provider.User, event.Provider.Token)
+	if err != nil {
+		return fmt.Errorf("failed to create bitbucket client: %w", err)
+	}
+	v.bbClient = bbClient
 
 	// Added log for security audit purposes to log client access when a token is used
 	run.Clients.Log.Infof("bitbucket-cloud: initialized client with provided token for user=%s", event.Provider.User)
@@ -217,31 +233,44 @@ func (v *Provider) SetClient(_ context.Context, run *params.Run, event *info.Eve
 }
 
 func (v *Provider) GetCommitInfo(_ context.Context, event *info.Event) error {
-	branchortag := event.SHA
-	if branchortag == "" {
-		branchortag = event.HeadBranch
+	// If we don't have a SHA, get it from the branch first
+	sha := event.SHA
+	if sha == "" && event.HeadBranch != "" {
+		v.Logger.Infof("fetching branch info to get commit SHA for branch: %s", event.HeadBranch)
+		branchInfo, err := v.Client().Repositories.Repository.GetBranch(&bitbucket.RepositoryBranchOptions{
+			Owner:      event.Organization,
+			RepoSlug:   event.Repository,
+			BranchName: event.HeadBranch,
+		})
+		if err != nil {
+			return err
+		}
+		// Extract hash from Target map
+		if hash, ok := branchInfo.Target["hash"].(string); ok {
+			sha = hash
+		} else {
+			return fmt.Errorf("cannot extract commit hash from branch %s", event.HeadBranch)
+		}
 	}
-	response, err := v.Client().Repositories.Commits.GetCommits(&bitbucket.CommitsOptions{
-		Owner:       event.Organization,
-		RepoSlug:    event.Repository,
-		Branchortag: branchortag,
+
+	// Use GetCommit API for direct single-commit fetch (no pagination)
+	v.Logger.Infof("fetching commit info using GetCommit API for SHA: %s", sha)
+	response, err := v.Client().Repositories.Commits.GetCommit(&bitbucket.CommitsOptions{
+		Owner:    event.Organization,
+		RepoSlug: event.Repository,
+		Revision: sha,
 	})
 	if err != nil {
 		return err
 	}
+
 	commitMap, ok := response.(map[string]any)
 	if !ok {
-		return fmt.Errorf("cannot convert")
+		return fmt.Errorf("cannot convert commit response")
 	}
-	values, ok := commitMap["values"].([]any)
-	if !ok {
-		return fmt.Errorf("cannot convert")
-	}
-	if len(values) == 0 {
-		return fmt.Errorf("we did not get commit information from commit: %s", event.SHA)
-	}
+
 	commitinfo := &types.Commit{}
-	err = mapstructure.Decode(values[0], commitinfo)
+	err = mapstructure.Decode(commitMap, commitinfo)
 	if err != nil {
 		return err
 	}
@@ -251,6 +280,18 @@ func (v *Provider) GetCommitInfo(_ context.Context, event *info.Event) error {
 	event.SHAURL = commitinfo.Links.HTML.HRef
 	event.SHA = commitinfo.Hash
 
+	// Populate full commit information for LLM context
+	event.SHAMessage = commitinfo.Message
+	// Bitbucket Cloud API has limited commit author information
+	// Use display name or nickname if available
+	if commitinfo.Author.User.DisplayName != "" {
+		event.SHAAuthorName = commitinfo.Author.User.DisplayName
+	} else if commitinfo.Author.Nickname != "" {
+		event.SHAAuthorName = commitinfo.Author.Nickname
+	}
+	// Note: Bitbucket Cloud API doesn't provide author email or timestamps in the basic commit response
+
+	event.HasSkipCommand = provider.SkipCI(commitinfo.Message)
 	// now to get the default branch from repository.Get
 	repo, err := v.Client().Repositories.Repository.Get(&bitbucket.RepositoryOptions{
 		Owner:    event.Organization,
