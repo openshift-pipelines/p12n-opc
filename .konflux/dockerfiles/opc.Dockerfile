@@ -12,7 +12,7 @@ ENV GOEXPERIMENT="strictfipsruntime"
 RUN go build -buildvcs=false -mod=vendor -tags disable_gcp,strictfipsruntime  -o /tmp/opc main.go
 
 FROM $UBI_RUNTIME
-ARG VERSION=1.24
+ARG VERSION=1.25
 COPY --from=builder /tmp/opc /usr/bin
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
@@ -20,7 +20,7 @@ USER 65532
 
 LABEL \
     com.redhat.component="openshift-pipelines-opc-rhel9-container" \
-    cpe="cpe:/a:redhat:openshift_pipelines:1.24::el9" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.25::el9" \
     description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.description="Red Hat OpenShift Pipelines opc opc" \
     io.k8s.display-name="Red Hat OpenShift Pipelines opc opc" \
@@ -28,4 +28,4 @@ LABEL \
     maintainer="pipelines-extcomm@redhat.com" \
     name="openshift-pipelines/pipelines-opc-rhel9" \
     summary="Red Hat OpenShift Pipelines opc opc" \
-    version="v1.24.4"
+    version="v1.25.0"
